@@ -1,0 +1,20 @@
+package com.helpdesk.helpdesk_backend.mapper;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import com.helpdesk.helpdesk_backend.dto.ComentarioRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.ComentarioResponseDTO;
+import com.helpdesk.helpdesk_backend.model.TicketComentario;
+
+@Mapper(componentModel = "spring")
+public interface TicketComentarioMapper {
+
+    @Mapping(source = "ticketId", target = "ticket.id")
+    TicketComentario toEntity(ComentarioRequestDTO requestDTO);  
+    
+    @Mapping(source = "ticket.id", target = "ticketId")
+    @Mapping(source = "usuario.id", target = "usuarioId")
+    @Mapping(source = "usuario.nombres", target = "usuarioNombre")
+    ComentarioResponseDTO toResponseDTO(TicketComentario comentario);
+}

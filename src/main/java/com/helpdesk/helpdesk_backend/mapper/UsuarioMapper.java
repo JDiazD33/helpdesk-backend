@@ -26,11 +26,12 @@ public interface UsuarioMapper {
 
     // --- DE DTO DE ENTRADA (REQUEST) A ENTIDAD ---
     // Mapeamos los IDs del DTO entrante a los IDs de los objetos relacionados dentro de la entidad
-    @Mapping(source = "empresaId", target = "empresa.id")
     @Mapping(source = "rolId", target = "rol.id")
     // Ignoramos los campos que son gestionados por la BD o la lógica de negocio (SLA, auditoría, estado)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "activo", ignore = true)
     @Mapping(target = "fechaCreacion", ignore = true)
+    // Agregamos para ignorar la empresa, ya que no se recibe en el DTO de usuario y se asignará en la lógica de negocio
+    @Mapping(target = "empresa", ignore = true)
     Usuario toEntity(UsuarioRequestDTO requestDTO);
 }

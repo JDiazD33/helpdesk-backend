@@ -65,7 +65,6 @@ class UsuarioServiceImplTest {
                 .apellidos("Perez")
                 .email("juan@alpha.com")
                 .password("secret")
-                .empresaId(EMPRESA_CONTEXTO_ID)
                 .rolId(1L)
                 .build();
 

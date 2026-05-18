@@ -35,9 +35,6 @@ public class UsuarioRequestDTO {
     @Size(max = 12, message = "El teléfono no puede exceder los 12 caracteres")
     private String telefono;
 
-    @NotNull(message = "El ID de la empresa es obligatorio para asociar al usuario")
-    private Long empresaId;
-
     @NotNull(message = "El ID del rol es obligatorio para asociar al usuario")
     private Long rolId;
 }

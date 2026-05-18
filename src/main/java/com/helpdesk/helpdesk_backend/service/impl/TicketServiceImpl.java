@@ -65,7 +65,7 @@ public class TicketServiceImpl implements TicketService{
     @Override
     @Transactional
     public TicketResponseDTO asignarAgente(Long ticketId, Long agenteId, Long empresaIdContexto) {
-        Ticket ticket = ticketRepository.findByIdAndEmpresaId(agenteId, empresaIdContexto)
+        Ticket ticket = ticketRepository.findByIdAndEmpresaId(ticketId, empresaIdContexto)
         .orElseThrow(() -> new RuntimeException("Ticket no encontrado o no pertenece a la empresa"));
         
         Usuario agente = usuarioRepository.findByIdAndEmpresaId(agenteId, empresaIdContexto)

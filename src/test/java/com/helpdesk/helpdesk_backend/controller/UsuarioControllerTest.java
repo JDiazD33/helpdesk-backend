@@ -49,7 +49,6 @@ class UsuarioControllerTest {
                 .apellidos("Pérez")
                 .email("juan@alpha.com")
                 .password("secreta")
-                .empresaId(EMPRESA_CONTEXTO_ID)
                 .rolId(1L)
                 .build();
 

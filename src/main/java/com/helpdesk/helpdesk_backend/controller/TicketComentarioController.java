@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,6 +39,8 @@ public class TicketComentarioController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/ticket/{ticketId}")
+    @Operation(summary = "Listar todos los comentarios de un ticket")
     public ResponseEntity<List<ComentarioResponseDTO>> listarComentariosPorTicket(
             @PathVariable Long ticketId,
             @RequestHeader("X-Empresa-Id") Long empresaId) {

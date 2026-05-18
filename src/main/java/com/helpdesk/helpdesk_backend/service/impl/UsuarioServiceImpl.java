@@ -31,24 +31,23 @@ public class UsuarioServiceImpl implements UsuarioService{
     @Override
     @Transactional
     public UsuarioResponseDTO crearUsuario(UsuarioRequestDTO requestDTO, Long empresaIdContexto) {
-        // Validar que el usuario se esté creando dentro de la empresa del contexto actual
-        if (!requestDTO.getEmpresaId().equals(empresaIdContexto)) {
-            throw new RuntimeException("VIOLACION DE SEGURIDAD! No se puede crear usuarios para otra empresa.");
-        }
+
         if (usuarioRepository.existsByEmail(requestDTO.getEmail())) {
             throw new RuntimeException("El correo electronico ya esta registrado en el sistema.");
         }
 
         Usuario usuario = usuarioMapper.toEntity(requestDTO);
 
-        Rol rol = rolRepository.findById(requestDTO.getRolId()).orElseThrow(()->new RuntimeException("El rol especificado no existe."));
+        Rol rol = rolRepository.findById(requestDTO.getRolId())
+            .orElseThrow(()->new RuntimeException("El rol especificado no existe."));
         usuario.setRol(rol);
 
-        Empresa empresa = empresaRepository.findById(empresaIdContexto).orElseThrow(()->new RuntimeException("Empresa no encontrada"));
+        Empresa empresa = empresaRepository.findById(empresaIdContexto)
+            .orElseThrow(()->new RuntimeException("Empresa no encontrada"));
         usuario.setEmpresa(empresa);
 
         // TODO: Encriptar la contraseña usando BCrypt antes de guardar. 
-        // Como la seguridad (Spring Security + JWT) se implementará más adelante[cite: 4], 
+        // Como la seguridad (Spring Security + JWT) se implementará más adelante, 
         // por ahora la guardaremos tal cual viene en el request.
         usuario.setPassword(requestDTO.getPassword());
 

@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.helpdesk.helpdesk_backend.dto.AsignarAgenteRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.TicketRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.TicketResponseDTO;
-import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,19 +56,23 @@ public class TicketController {
     @Operation(summary = "Asignar un ticket a un agente")
     public ResponseEntity<TicketResponseDTO> asignarAgente(
             @PathVariable Long id,
-            @RequestParam Long agenteId,
+            @Valid @RequestBody AsignarAgenteRequestDTO requestDTO,
             @RequestHeader ("X-Empresa-Id") Long empresaId){
-        return ResponseEntity.ok(ticketService.asignarAgente(id, agenteId, empresaId));
+        return ResponseEntity.ok(ticketService.asignarAgente(id, requestDTO.getAgenteId(), empresaId));
     }
 
     @PatchMapping("/{id}/estado")
     @Operation(summary = "Cambiar el estado de un ticket (Requiere justificación para cerrar)")
     public ResponseEntity<TicketResponseDTO> cambiarEstado(
             @PathVariable Long id,
-            @RequestParam EstadoTicket estado,
-            @RequestParam(required = false) String justificacionCierre,
+            @Valid @RequestBody CambiarEstadoRequestDTO requestDTO,
             @RequestHeader("X-Empresa-Id") Long empresaId){
-        return ResponseEntity.ok(ticketService.cambiarEstado(id, estado, justificacionCierre, empresaId));
+        return ResponseEntity.ok(ticketService.cambiarEstado(
+            id, 
+            requestDTO.getEstado(), 
+            requestDTO.getJustificacionCierre(), 
+            empresaId
+        ));
     }
 
     // --- ENDPOINTS DE LISTADOS (Paginados) ---

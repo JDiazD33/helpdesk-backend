@@ -1,49 +1,28 @@
 package com.helpdesk.helpdesk_backend.service;
-import java.util.List;
-import java.util.Optional;
-import com.helpdesk.helpdesk_backend.model.Ticket;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import com.helpdesk.helpdesk_backend.dto.TicketRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.TicketResponseDTO;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
-import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
 
 public interface TicketService {
     
-    // Busca todos los tickets, sin filtros
-    List<Ticket> listarTodos();
+    TicketResponseDTO crearTicket(TicketRequestDTO requestDTO, Long clienteIdContexto, Long empresaIdContexto);
 
-    // Busca ticket por id, usa optional para evitar errores de inexistencia
-    Optional<Ticket> buscarPorId(Long id);
+    TicketResponseDTO asignarAgente(Long ticketId, Long agenteId, Long empresaIdContexto);
 
-    // Crear nuevo ticket
-    Ticket guardar(Ticket ticket);
+    TicketResponseDTO cambiarEstado(Long ticketId, EstadoTicket nuevoEstado, String justificacionCierre, Long empresaIdContexto);
 
-    // Actualizar ticket existente
-    Ticket actualizar(Long id, Ticket ticket);
+    TicketResponseDTO obtenerPorId(Long ticketId, Long empresaIdContexto);
 
-    // Desactivar ticket (NO ELIMINA)
-    void eliminar(Long id);
+    // Listados Operativos
+    Page<TicketResponseDTO> listarTodosPorEmpresa(Long empresaIdContexto, Pageable pageable);
 
-    // Filtros
-    // Busca ticket por código, usa optional para evitar errores de inexistencia
-    Optional<Ticket> buscarPorCodigo(String codigo);
+    Page<TicketResponseDTO> listarPorCliente(Long clienteId, Long empresaIdContexto, Pageable pageable);
 
-    // Lista tickets por empresa, cliente, agente asignado, categoría, estado o prioridad
-    List<Ticket> listarPorEmpresaId(Long empresaId);
-
-    List<Ticket> listarPorClienteId(Long clienteId);
-
-    List<Ticket> listarPorAgenteAsignadoId(Long agenteAsignadoId);
-
-    List<Ticket> listarPorCategoriaId(Long categoriaId);
-
-    List<Ticket> listarPorEstado(EstadoTicket estado);
-
-    List<Ticket> listarPorPrioridad(PrioridadTicket prioridad);
-
-    // Lista tickets por empresa y estado o prioridad
-    List<Ticket> listarPorEmpresaIdYEstado(Long empresaId, EstadoTicket estado);
-
-    List<Ticket> listarPorEmpresaIdYPrioridad(Long empresaId, PrioridadTicket prioridad);
-    
-    // Verifica si existe ticket por código, para evitar duplicados
-    boolean existePorCodigo(String codigo);
+    Page<TicketResponseDTO> listarPorAgente(Long agenteId, Long empresaIdContexto, Pageable pageable);
+ 
+    Page<TicketResponseDTO> listarNoAsignados(Long empresaIdContexto, Pageable pageable);
 }

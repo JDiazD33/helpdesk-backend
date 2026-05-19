@@ -3,16 +3,16 @@ package com.helpdesk.helpdesk_backend.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import com.helpdesk.helpdesk_backend.model.ProblemaTicket;
 
+@Repository
 public interface ProblemaTicketRepository extends JpaRepository<ProblemaTicket, Long> {
 
-    // Listar problemas de una categoría específica.
-    // Útil para organizar problemas por categorías.
-    List<ProblemaTicket> findByCategoriaId(Long empresaId);
+    // Listar problemas operativos de una categoría específica
+    List<ProblemaTicket> findAllByCategoriaIdAndActivoTrue(Long categoriaId);
 
-    // Listar problemas de una empresa específica.
-    // En un sistema SaaS cada empresa tendrá sus propios problemas.
-    List<ProblemaTicket> findByActivo(boolean activo);
+    // Validar que no haya problemas repetidos dentro de la misma categoria
+    boolean existsByNombreAndCategoriaId(String nombre, Long categoriaId);
 }

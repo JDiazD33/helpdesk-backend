@@ -1,124 +1,77 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.helpdesk.helpdesk_backend.dto.EmpresaRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
+import com.helpdesk.helpdesk_backend.mapper.EmpresaMapper;
 import com.helpdesk.helpdesk_backend.model.Empresa;
 import com.helpdesk.helpdesk_backend.repository.EmpresaRepository;
 import com.helpdesk.helpdesk_backend.service.EmpresaService;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class EmpresaServiceImpl implements EmpresaService{
 
     private final EmpresaRepository empresaRepository;
+    private final EmpresaMapper empresaMapper;
 
-    public EmpresaServiceImpl(EmpresaRepository empresaRepository) {
-        this.empresaRepository = empresaRepository;
-    }
-
-    /**
-     * Lista todas las empresas registradas.
-     */
     @Override
-    public List<Empresa> listarTodos() {
-        return empresaRepository.findAll();
+    @Transactional
+    public EmpresaResponseDTO crearEmpresa(EmpresaRequestDTO requestDTO) {
+        // Validaciones de negocio: RUC y Correo únicos
+        if (empresaRepository.findByRuc(requestDTO.getRuc()).isPresent()) {
+            throw new RuntimeException("El RUC ya se encuentra registrado.");   
+        }
+        Empresa empresa = empresaMapper.toEntity(requestDTO);
+        // El campo 'activo' se inicializa en true por el @Builder.Default
+        // y la 'fechaCreacion' por @CreationTimestamp 
+        Empresa empresaGuardada = empresaRepository.save(empresa);
+        return empresaMapper.toResponseDTO(empresaGuardada);
     }
 
-    /**
-     * Busca una empresa por su ID.
-     */
     @Override
     @Transactional(readOnly = true)
-    public Optional<Empresa> buscarPorId(Long id) {
-        return empresaRepository.findById(id);
+    public EmpresaResponseDTO obtenerEmpresaPorId(Long id) {
+        Empresa empresa = empresaRepository.findByIdAndActivoTrue(id)
+        .orElseThrow(() -> new RuntimeException("Empresa no encontrada o inactiva"));
+        return empresaMapper.toResponseDTO(empresa);
+        
     }
 
-    /**
-     * Guarda una nueva empresa validando el RUC y Correo.
-     */
-    @Override
-    public Empresa guardar(Empresa empresa) {
-        if (empresaRepository.existsByRuc(empresa.getRuc())) {
-            throw new RuntimeException("Error: Ya existe una empresa con el mismo RUC.");
-        }
-        if (empresaRepository.existsByCorreoContacto(empresa.getCorreoContacto())) {
-            throw new RuntimeException("Error: Ya existe una empresa con el mismo correo de contacto.");
-        }
-        return empresaRepository.save(empresa);
-    }
-
-    /**
-     * Actualiza una empresa existente.
-     */
-    @Override
-    public Empresa actualizar(Long id, Empresa empresa) {
-        Empresa empresaExistente = empresaRepository.findById(id)
-        .orElseThrow(() -> new RuntimeException("Error: Empresa no encontrada con id: " + id));
-
-        if(!empresaExistente.getRuc().equals(empresa.getRuc()) && empresaRepository.existsByRuc(empresa.getRuc())) {
-            throw new RuntimeException("Error: Ya existe una empresa con el mismo RUC.");
-        }
-        if(!empresaExistente.getCorreoContacto().equals(empresa.getCorreoContacto()) && empresaRepository.existsByCorreoContacto(empresa.getCorreoContacto())) {
-            throw new RuntimeException("Error: Ya existe una empresa con el mismo correo de contacto.");
-        }
-
-        empresaExistente.setNombre(empresa.getNombre());
-        empresaExistente.setRuc(empresa.getRuc());
-        empresaExistente.setCorreoContacto(empresa.getCorreoContacto());
-        empresaExistente.setTelefonoContacto(empresa.getTelefonoContacto());
-        empresaExistente.setActivo(empresa.isActivo());
-
-        return empresaRepository.save(empresaExistente);
-    }
-
-    /**
-     * Elimina una empresa por su ID.
-     */
-    @Override
-    public void eliminar(Long id) {
-        if (!empresaRepository.existsById(id)) {
-            throw new RuntimeException("Error: No se puede eliminar. Empresa no encontrada con id: " + id);
-        }
-        empresaRepository.deleteById(id);
-    }
-
-    /**
-     * Busca una empresa por su RUC.
-     */
-    @Override
-    public Optional<Empresa> buscarPorRuc(String ruc) {
-        return empresaRepository.findByRuc(ruc);
-    }
-
-    /**
-     * Busca una empresa por el correo de contacto.
-     */
     @Override
     @Transactional(readOnly = true)
-    public Optional<Empresa> buscarPorCorreoContacto(String correoContacto) {
-        return empresaRepository.findByCorreoContacto(correoContacto);
+    public List<EmpresaResponseDTO> listarEmpresasActivas() {
+        return empresaRepository.findAll().stream().filter(Empresa::isActivo)
+        .map(empresaMapper::toResponseDTO).collect(Collectors.toList());
     }
 
-    /**
-     * Verifica si una empresa existe a través de su RUC.
-     */
     @Override
-    @Transactional(readOnly = true)
-    public boolean existePorRuc(String ruc) {
-        return empresaRepository.existsByRuc(ruc);
+    @Transactional
+    public EmpresaResponseDTO actualizarEmpresa(Long id, EmpresaRequestDTO requestDTO) {
+        Empresa empresaExistente = empresaRepository.findByIdAndActivoTrue(id)
+        .orElseThrow(()->new RuntimeException("Empresa no encontrada o inactiva"));
+        empresaExistente.setNombre(requestDTO.getNombre());
+        empresaExistente.setRuc(requestDTO.getRuc());
+        empresaExistente.setCorreoContacto(requestDTO.getCorreoContacto());
+        empresaExistente.setTelefonoContacto(requestDTO.getTelefonoContacto());
+
+        Empresa empresaActualizada = empresaRepository.save(empresaExistente);
+        return empresaMapper.toResponseDTO(empresaActualizada);
     }
 
-    /**
-     * Verifica si una empresa existe a través de su correo de contacto.
-     */
     @Override
-    @Transactional(readOnly = true)
-    public boolean existePorCorreoContacto(String correoContacto) {
-        return empresaRepository.existsByCorreoContacto(correoContacto);
+    public void eliminarEmpresa(Long id) {
+        Empresa empresa = empresaRepository.findByIdAndActivoTrue(id)
+        .orElseThrow(()->new RuntimeException("Empresa no encontrada o inactiva"));
+        // Aplicamos el borrado lógico en lugar de eliminar el registro
+        empresa.setActivo(false);
+        empresaRepository.save(empresa);
     }
-
 }

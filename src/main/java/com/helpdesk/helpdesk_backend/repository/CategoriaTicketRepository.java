@@ -4,27 +4,22 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
 
+@Repository
 public interface CategoriaTicketRepository extends JpaRepository<CategoriaTicket, Long> {
-    // Listar categorías activas o inactivas.
-    // Será útil para filtros y administración de categorías.
-    List<CategoriaTicket> findByActiva(boolean activa);
 
-    // Listar todas las categorías de una empresa.
-    // En el sistema SaaS cada empresa tendrá sus propias categorías.
-    List<CategoriaTicket> findByEmpresaId(Long empresaId);
+    // Para administración: Lista todas las categorías (activas e inactivas) de una empresa
+    List<CategoriaTicket> findAllByEmpresaId(Long empresaId);
 
-    // Listar categorías de una empresa filtrando si están activas.
-    // Ejemplo: categorías activas de la empresa 2.
-    List<CategoriaTicket> findByEmpresaIdAndActiva(Long empresaId, boolean activa);
+    // Para uso operativo: Lista categorías activas de una empresa específica
+    List<CategoriaTicket> findAllByEmpresaIdAndActivaTrue(Long empresaId);
 
-    // Buscar una categoría por nombre dentro de una empresa.
-    // Sirve para validar que no se repita el nombre en la misma empresa.
-    Optional<CategoriaTicket> findByNombreAndEmpresaId(String nombre, Long empresaId);
-
-    // Verificar si ya existe una categoría con ese nombre en una empresa.
-    // Importante para evitar duplicados por empresa.
+    // Para validar duplicados en la misma empresa al crear o editar
     boolean existsByNombreAndEmpresaId(String nombre, Long empresaId);
+    
+    // Búsqueda segura: Garantiza que la categoría exista, esté activa y pertenezca a la empresa
+    Optional<CategoriaTicket> findByIdAndEmpresaIdAndActivaTrue(Long id, Long empresaId);
 }

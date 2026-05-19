@@ -1,142 +1,139 @@
 package com.helpdesk.helpdesk_backend.controller;
 
-import com.helpdesk.helpdesk_backend.model.Empresa;
-import com.helpdesk.helpdesk_backend.service.EmpresaService;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@ExtendWith(MockitoExtension.class)
+import java.util.Arrays;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.helpdesk.helpdesk_backend.dto.EmpresaRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
+import com.helpdesk.helpdesk_backend.service.EmpresaService;
+
+@WebMvcTest(EmpresaController.class)
 class EmpresaControllerTest {
 
-    @Mock
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    // Usamos @MockitoBean para Spring Boot 3.4+
+    @MockitoBean
     private EmpresaService empresaService;
 
-    @InjectMocks
-    private EmpresaController empresaController;
-    /* */
-    @Test
-    void listarTodos() {
-        // Simula que el servicio retorna una lista con una empresa
-        when(empresaService.listarTodos()).thenReturn(List.of(new Empresa()));
-        // Ejecuta el método del controlador
-        ResponseEntity<List<Empresa>> response = empresaController.listarTodos();
-        // Verifica que el código HTTP sea 200 OK y que el body contenga 1 elemento
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(1, response.getBody().size());
+    private EmpresaRequestDTO requestDTO;
+    private EmpresaResponseDTO responseDTO;
+
+    @BeforeEach
+    void setUp() {
+        requestDTO = EmpresaRequestDTO.builder()
+                .nombre("Empresa Alpha")
+                .ruc("10000000001")
+                .correoContacto("alpha@empresa.com")
+                .telefonoContacto("111111111")
+                .build();
+
+        responseDTO = EmpresaResponseDTO.builder()
+                .id(1L)
+                .nombre("Empresa Alpha")
+                .ruc("10000000001")
+                .correoContacto("alpha@empresa.com")
+                .telefonoContacto("111111111")
+                .activo(true)
+                .build();
     }
 
     @Test
-    void buscarPorId_existente() {
-        // Simula que el servicio encuentra una empresa con id 1
-        when(empresaService.buscarPorId(1L)).thenReturn(Optional.of(new Empresa()));
-         // Ejecuta el método del controlador con el id 1
-        ResponseEntity<Empresa> response = empresaController.buscarPorId(1L);
+    void crearEmpresa_ConDatosValidos_RetornaStatus201() throws Exception {
+        // Arrange
+        when(empresaService.crearEmpresa(any(EmpresaRequestDTO.class))).thenReturn(responseDTO);
 
-        // Verifica que el código HTTP sea 200 OK y que el body no sea nulo
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
+        // Act & Assert
+        mockMvc.perform(post("/api/empresas")
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.nombre").value("Empresa Alpha"))
+                .andExpect(jsonPath("$.ruc").value("10000000001"));
     }
 
     @Test
-    void buscarPorId_noExiste() {
-         // Simula que el servicio no encuentra ninguna empresa con id 1
-        when(empresaService.buscarPorId(1L)).thenReturn(Optional.empty());
-        // Ejecuta el método del controlador con el id 1
-        ResponseEntity<Empresa> response = empresaController.buscarPorId(1L);
-        // Verifica que el código HTTP sea 404 NOT FOUND
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    void crearEmpresa_ConDatosInvalidos_RetornaStatus400() throws Exception {
+        // Arrange - Simulamos un request incompleto (sin RUC ni nombre) para forzar el fallo de @Valid
+        EmpresaRequestDTO requestInvalido = EmpresaRequestDTO.builder()
+                .correoContacto("correo_invalido") // No es un email válido
+                .build();
+
+        // Act & Assert
+        mockMvc.perform(post("/api/empresas")
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(objectMapper.writeValueAsString(requestInvalido)))
+                .andExpect(status().isBadRequest()); // Esperamos un error 400 por fallar las validaciones
     }
 
     @Test
-    void buscarPorRuc_existente() {
-        // Simula que el servicio encuentra una empresa con el RUC indicado
-        when(empresaService.buscarPorRuc("20123456789")).thenReturn(Optional.of(new Empresa()));
-        // Ejecuta el método del controlador con el RUC indicado
-        ResponseEntity<Empresa> response = empresaController.buscarPorRuc("20123456789");
-        // Verifica que el código HTTP sea 200 OK y que el body no sea nulo
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
+    void obtenerEmpresa_CuandoExiste_RetornaStatus200() throws Exception {
+        // Arrange
+        when(empresaService.obtenerEmpresaPorId(1L)).thenReturn(responseDTO);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/empresas/{id}", 1L)
+                .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Empresa Alpha"));
     }
 
     @Test
-    void buscarPorRuc_noExiste() {
-        // Simula que el servicio no encuentra ninguna empresa con el RUC indicado
-        when(empresaService.buscarPorRuc("20123456789")).thenReturn(Optional.empty());
-        // Ejecuta el método del controlador con el RUC indicado
-        ResponseEntity<Empresa> response = empresaController.buscarPorRuc("20123456789");
-        // Verifica que el código HTTP sea 404 NOT FOUND
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    void listarEmpresasActivas_RetornaListaYStatus200() throws Exception {
+        // Arrange
+        List<EmpresaResponseDTO> listaEmpresas = Arrays.asList(responseDTO);
+        when(empresaService.listarEmpresasActivas()).thenReturn(listaEmpresas);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/empresas")
+                .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(1))
+                .andExpect(jsonPath("$[0].ruc").value("10000000001"));
     }
 
     @Test
-    void buscarPorCorreo_existente() {
-        // Simula que el servicio encuentra una empresa con el correo indicado
-        when(empresaService.buscarPorCorreoContacto("empresa@correo.com")).thenReturn(Optional.of(new Empresa()));
-        // Ejecuta el método del controlador con el correo indicado
-        ResponseEntity<Empresa> response = empresaController.buscarPorCorreo("empresa@correo.com");
-        // Verifica que el código HTTP sea 200 OK y que el body no sea nulo
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
+    void actualizarEmpresa_ConDatosValidos_RetornaStatus200() throws Exception {
+        // Arrange
+        when(empresaService.actualizarEmpresa(eq(1L), any(EmpresaRequestDTO.class))).thenReturn(responseDTO);
+
+        // Act & Assert
+        mockMvc.perform(put("/api/empresas/{id}", 1L)
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.nombre").value("Empresa Alpha"));
     }
 
     @Test
-    void buscarPorCorreo_noExiste() {
-         // Simula que el servicio no encuentra ninguna empresa con el correo indicado
-        when(empresaService.buscarPorCorreoContacto("empresa@correo.com")).thenReturn(Optional.empty());
-         // Ejecuta el método del controlador con el correo indicado
-        ResponseEntity<Empresa> response = empresaController.buscarPorCorreo("empresa@correo.com");
-         // Verifica que el código HTTP sea 404 NOT FOUND
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    }
+    void eliminarEmpresa_RetornaStatus204() throws Exception {
+        // Arrange
+        doNothing().when(empresaService).eliminarEmpresa(1L);
 
-    @Test
-    void guardar() {
-        // Crea una empresa de prueba a retornar por el mock
-        Empresa empresa = new Empresa();
-        // Simula que el servicio guarda cualquier empresa y la retorna
-        when(empresaService.guardar(any(Empresa.class))).thenReturn(empresa);
-        // Ejecuta el método del controlador con una empresa vacía
-        ResponseEntity<Empresa> response = empresaController.guardar(new Empresa());
-        // Verifica que el código HTTP sea 201 CREATED y que el body no sea nulo
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
-    }
-
-    @Test
-    void actualizar() {
-        // Crea una empresa de prueba a retornar por el mock
-        Empresa empresa = new Empresa();
-        // Simula que el servicio actualiza la empresa con id 1 y retorna la empresa actualizada
-        when(empresaService.actualizar(eq(1L), any(Empresa.class))).thenReturn(empresa);
-        // Ejecuta el método del controlador con el id 1 y una empresa vacía
-        ResponseEntity<Empresa> response = empresaController.actualizar(1L, new Empresa());
-         // Verifica que el código HTTP sea 200 OK y que el body no sea nulo
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-    }
-
-    @Test
-    void eliminar() {
-        // Simula que el servicio elimina la empresa con id 1 sin retornar nada
-        doNothing().when(empresaService).eliminar(1L);
-        // Ejecuta el método del controlador con el id 1
-        ResponseEntity<Void> response = empresaController.eliminar(1L);
-        // Verifica que el código HTTP sea 204 NO CONTENT
-        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-        // Verifica que el servicio fue llamado exactamente una vez con el id 1
-        verify(empresaService, times(1)).eliminar(1L);
+        // Act & Assert
+        mockMvc.perform(delete("/api/empresas/{id}", 1L))
+                .andExpect(status().isNoContent()); // Esperamos 204 No Content para la eliminación exitosa
     }
 }

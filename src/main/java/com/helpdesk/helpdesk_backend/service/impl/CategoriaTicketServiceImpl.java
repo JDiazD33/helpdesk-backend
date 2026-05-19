@@ -1,101 +1,81 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
+import com.helpdesk.helpdesk_backend.mapper.CategoriaTicketMapper;
 import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
+import com.helpdesk.helpdesk_backend.model.Empresa;
 import com.helpdesk.helpdesk_backend.repository.CategoriaTicketRepository;
+import com.helpdesk.helpdesk_backend.repository.EmpresaRepository;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
+
+import lombok.RequiredArgsConstructor;
 
 
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class CategoriaTicketServiceImpl implements CategoriaTicketService {
 
-    private final CategoriaTicketRepository categoriaTicketRepository;
+    private final CategoriaTicketRepository categoriaRepository;
+    private final EmpresaRepository empresaRepository;
+    private final CategoriaTicketMapper categoriaMapper;
 
-    public CategoriaTicketServiceImpl(CategoriaTicketRepository categoriaTicketRepository) {
-        this.categoriaTicketRepository = categoriaTicketRepository;
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoriaResponseDTO> listarCategoriasActivas(Long empresaId) {
+        return categoriaRepository.findAllByEmpresaIdAndActivaTrue(empresaId).stream()
+                .map(categoriaMapper::toResponseDTO)
+                .collect(Collectors.toList());
     }
 
-    
     @Override
-    public CategoriaTicket guardar(CategoriaTicket categoriaTicket) {
-        if (categoriaTicketRepository.existsByNombreAndEmpresaId(categoriaTicket.getNombre(), categoriaTicket.getEmpresa().getId())) {
-            throw new IllegalArgumentException("Ya existe una categoría de ticket con el mismo nombre para esta empresa");
+    @Transactional(readOnly = true)
+    public List<CategoriaResponseDTO> listarTodas(Long empresaId) {
+        return categoriaRepository.findAllByEmpresaId(empresaId).stream()
+                .map(categoriaMapper::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public CategoriaResponseDTO crearCategoria(CategoriaRequestDTO requestDTO, Long empresaId) {
+        if (categoriaRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), empresaId)) {
+            throw new RuntimeException("Ya existe una categoría con este nombre en la empresa");
         }
-        return categoriaTicketRepository.save(categoriaTicket);
+        Empresa empresa = empresaRepository.findById(empresaId).orElseThrow(() -> new RuntimeException("Empresa no encontrada."));
+        CategoriaTicket categoria = categoriaMapper.toEntity(requestDTO);
+        categoria.setEmpresa(empresa);
+        categoria.setActiva(true);
+
+        CategoriaTicket categoriaGuardada = categoriaRepository.save(categoria);
+        return categoriaMapper.toResponseDTO(categoriaGuardada);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<CategoriaTicket> listarTodas() {
-        return categoriaTicketRepository.findAll();
-    }
+    public CategoriaResponseDTO actualizarCategoria(Long id, CategoriaRequestDTO requestDTO, Long empresaId) {
+        CategoriaTicket categoria = categoriaRepository.findByIdAndEmpresaIdAndActivaTrue(id, empresaId)
+                .orElseThrow(() -> new RuntimeException("Categoria no encontrada o inactiva"));
 
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<CategoriaTicket> buscarPorId(Long id) {
-        return categoriaTicketRepository.findById(id);
-    }
-
-    @Override
-    public CategoriaTicket actualizar(Long id, CategoriaTicket categoriaTicket) {
-        CategoriaTicket categoriaExistente = categoriaTicketRepository.findById(id)
-        .orElseThrow(() -> new RuntimeException("Error: Categoría de ticket no encontrada con id: " + id));
-
-        if(!categoriaExistente.getNombre().equals(categoriaTicket.getNombre()) 
-            && categoriaTicketRepository.existsByNombreAndEmpresaId(categoriaTicket.getNombre(), categoriaTicket.getEmpresa().getId())) {
-            throw new RuntimeException("Ya existe una categoría de ticket con el mismo nombre para esta empresa");
+        if (!categoria.getNombre().equalsIgnoreCase(requestDTO.getNombre()) && categoriaRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), empresaId)) {
+            throw new RuntimeException("Ya existe otra categoria con este nombre en la empresa");            
         }
 
-        categoriaExistente.setNombre(categoriaTicket.getNombre());
-        categoriaExistente.setDescripcion(categoriaTicket.getDescripcion());
-        categoriaExistente.setActiva(categoriaTicket.isActiva());
-        categoriaExistente.setEmpresa(categoriaTicket.getEmpresa());
-
-        return categoriaTicketRepository.save(categoriaExistente);
+        categoriaMapper.updateEntityFromDTO(requestDTO, categoria);
+        return categoriaMapper.toResponseDTO(categoriaRepository.save(categoria));
     }
 
     @Override
-    public void eliminar(Long id) {
-        if (!categoriaTicketRepository.existsById(id)) {
-            throw new RuntimeException("Error: No se puede eliminar. Categoría de ticket no encontrada con id: " + id);
-        }
-        categoriaTicketRepository.deleteById(id);
+    public void eliminarCategoria(Long id, Long empresaId) {
+        CategoriaTicket categoria = categoriaRepository.findByIdAndEmpresaIdAndActivaTrue(id, empresaId)
+                .orElseThrow(() -> new RuntimeException("Categoría no encontrada o ya está inactiva"));
+        //Borrado Logico
+        categoria.setActiva(false);
+        categoriaRepository.save(categoria);
     }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public List<CategoriaTicket> listarPorActiva(boolean activa) {
-        return categoriaTicketRepository.findByActiva(activa);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CategoriaTicket> listarPorEmpresaId(Long empresaId) {
-        return categoriaTicketRepository.findByEmpresaId(empresaId);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CategoriaTicket> listarPorEmpresaIdYActiva(Long empresaId, boolean activa) {
-        return categoriaTicketRepository.findByEmpresaIdAndActiva(empresaId, activa);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<CategoriaTicket> buscarPorNombreYEmpresaId(String nombre, Long empresaId) {
-        return categoriaTicketRepository.findByNombreAndEmpresaId(nombre, empresaId);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public boolean existePorNombreYEmpresaId(String nombre, Long empresaId) {
-        return categoriaTicketRepository.existsByNombreAndEmpresaId(nombre, empresaId);
-    }
-
 }

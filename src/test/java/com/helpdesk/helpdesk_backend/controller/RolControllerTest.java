@@ -1,147 +1,52 @@
 package com.helpdesk.helpdesk_backend.controller;
 
-import com.helpdesk.helpdesk_backend.model.Rol;
+import com.helpdesk.helpdesk_backend.dto.RolResponseDTO;
 import com.helpdesk.helpdesk_backend.service.RolService;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
-// @ExtendWith reemplaza a MockitoAnnotations.openMocks(this) en JUnit 5
-@ExtendWith(MockitoExtension.class)
+
+
+@WebMvcTest(RolController.class)
 class RolControllerTest {
 
+    @Autowired
+    private MockMvc mockMvc;
+
     // Mock del servicio
-    @Mock
+    @MockitoBean
     private RolService rolService;
 
-    // Inyección del mock en el controller
-    @InjectMocks
-    private RolController rolController;
-
     @Test
-    void listarTodos() {
-        List<Rol> listaRoles = List.of(new Rol());
-        
-        when(rolService.listarTodos()).thenReturn(listaRoles);
+    void obtenerTodosLosRoles_DebeRetornarListaYStatus200() throws Exception {
+        // Arrage
+        RolResponseDTO dto1 = RolResponseDTO.builder().id(1L).nombre("ADMIN").build();
+        RolResponseDTO dto2 = RolResponseDTO.builder().id(2L).nombre("USER").build();
+        List<RolResponseDTO> listaRoles = Arrays.asList(dto1,dto2);
 
-        // Act: Ejecutamos el método del controller
-        ResponseEntity<List<Rol>> response = rolController.listarTodos();
+        when(rolService.obtenerTodosLosRoles()).thenReturn(listaRoles);
 
-        // Assert: Validamos que responde 200 OK
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().size());
+        // Act & Assert
+        mockMvc.perform(get("/api/roles")
+                .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(2))
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].nombre").value("ADMIN"))
+                .andExpect(jsonPath("$[1].id").value(2))
+                .andExpect(jsonPath("$[1].nombre").value("USER"));
     }
 
-    @Test
-    void buscarPorId_existente() {
-        // Arrange: Creamos un rol de prueba
-        Rol rol = new Rol();
-        
-        when(rolService.buscarPorId(1L)).thenReturn(Optional.of(rol));
-
-        // Act: Ejecutamos el método
-        ResponseEntity<Rol> response = rolController.buscarPorId(1L);
-
-        // Assert: Debe devolver 200 OK y el body debe existir
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-    }
-
-    @Test
-    void buscarPorId_noExiste() {
-        // Arrange: Simulamos que no existe
-        when(rolService.buscarPorId(1L)).thenReturn(Optional.empty());
-
-        // Act: Ejecutamos el método
-        ResponseEntity<Rol> response = rolController.buscarPorId(1L);
-
-        // Assert: Debe devolver 404 NOT FOUND
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    }
-
-    @Test
-    void buscarPorNombre_existente() {
-        // Arrange: Creamos un rol de prueba
-        Rol rol = new Rol(1L, "Administrador");
-        
-        when(rolService.buscarPorNombre("Administrador")).thenReturn(Optional.of(rol));
-
-        // Act: Ejecutamos el método
-        ResponseEntity<Rol> response = rolController.buscarPorNombre("Administrador");
-
-        // Assert: Debe devolver 200 OK
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("Administrador", response.getBody().getNombre());
-    }
-
-    @Test
-    void buscarPorNombre_noExiste() {
-        // Arrange: Simulamos que no existe
-        when(rolService.buscarPorNombre("No existe Rol")).thenReturn(Optional.empty());
-
-        // Act: Ejecutamos el método
-        ResponseEntity<Rol> response = rolController.buscarPorNombre("No existe Rol");
-
-        // Assert: Debe devolver 404 NOT FOUND
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    }
-
-    @Test
-    void guardar() {
-        // Arrange: Creamos un rol a guardar
-        Rol rolGuardar = new Rol();
-
-        when(rolService.guardar(rolGuardar)).thenReturn(rolGuardar);
-
-        // Act: Ejecutamos el método
-        ResponseEntity<Rol> response = rolController.guardar(rolGuardar);
-
-        // Assert: Debe devolver 201 CREATED
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
-    }
-
-    @Test
-    void actualizar() {
-        // Arrange: Creamos roles para actualizar
-        Rol rolActualizar = new Rol();
-        Rol rolAActualizar = new Rol();
-        rolAActualizar.setNombre("Rol Actualizado");
-        
-        when(rolService.actualizar(1L, rolActualizar)).thenReturn(rolAActualizar);
-
-        // Act: Ejecutamos el método
-        ResponseEntity<Rol> response = rolController.actualizar(1L, rolActualizar);
-
-        // Assert: Debe devolver 200 OK
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("Rol Actualizado", response.getBody().getNombre());
-    }
-
-    @Test
-    void eliminar() {
-        // Arrange: Simulamos eliminación exitosa
-        doNothing().when(rolService).eliminar(1L);
-
-        // Act: Ejecutamos el método
-        ResponseEntity<Void> response = rolController.eliminar(1L);
-
-        // Assert: Debe devolver 204 NO CONTENT
-        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-        verify(rolService, times(1)).eliminar(1L);
-    }
 }

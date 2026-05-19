@@ -8,33 +8,23 @@ import java.util.Optional;
 
 @Repository
 public interface UsuarioRepository  extends JpaRepository <Usuario, Long > {
+    
+    // Login: El email debe ser unico en todo el sistema para que Spring Security funcione facil
+    Optional<Usuario> findByEmail(String email);
 
-    // Buscar usuario por email.
-    // Este método será clave para login, seguridad y validaciones.
-    Optional <Usuario> findByEmail(String email) ;
+    // Obtener un usuario asegurando que sea de MI empresa (Evita el hackeo de IDs en la URL)
+    Optional<Usuario> findByIdAndEmpresaId(Long id, Long empresaId);
 
-    // Verificar si ya existe un usuario con ese email.
-    // Importante para evitar correos duplicados al registrar usuarios.
+    // Listar todos los usuarios activos de una empresa (Para el panel de administración)
+    List<Usuario> findAllByEmpresaIdAndActivoTrue(Long empresaId);
+
+    // Listar por Rol (Ej: Traer solo agentes activos de la Empresa X para asignarles un ticket)
+    List<Usuario> findAllByEmpresaIdAndRolNombreAndActivoTrue(Long empresaId, String nombreRol);
+
+    // Verificar si el correo ya existe (Para el registro de nuevos usuarios)
     boolean existsByEmail(String email);
 
-    // Listar todos los usuarios de una empresa específica.
-    // Útil en un sistema SaaS donde cada empresa tiene sus propios usuarios.
-    List<Usuario> findByEmpresaId(Long empresaId);
-
-    // Listar usuarios según el rol.
-    // Sirve, por ejemplo, para obtener solo agentes o solo clientes.
-    List<Usuario> findByRolId(Long rolId);
-
-    // Listar usuarios de una empresa filtrando además si están activos.
-    // Ejemplo: usuarios activos de la empresa 1.
-    List<Usuario> findByEmpresaIdAndActivo(Long empresaId, boolean activo);
-
-    // Listar usuarios de una empresa con un rol específico.
-    // Ejemplo: agentes de soporte de una empresa.
-    List<Usuario> findByEmpresaIdAndRolId(Long empresaId, Long rolId);
-
-    // Listar usuarios según si están activos o inactivos.
-    // Puede usarse en el panel de administración.
-    List<Usuario> findByActivo(boolean activo);
+    // Verificar si existe el usuario en la empresa y está activo
+    boolean existsByIdAndEmpresaIdAndActivoTrue(Long id, Long empresaId);
 
 }

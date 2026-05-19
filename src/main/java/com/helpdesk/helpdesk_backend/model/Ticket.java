@@ -40,11 +40,7 @@ public class Ticket {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String descripcion;
 
-    @Column(length = 20)
-    private String telefonoReportante;
-
-    @Column(length = 120)
-    private String correoReportante;
+    // Ya tenemos correo y telefono en la entidad Usuario, por lo que no es necesario repetirlos aquí.
 
     /* Persiste el nombre del Enum como String en la BD para mayor legibilidad y mantenibilidad. */
     @Enumerated(EnumType.STRING)
@@ -56,8 +52,8 @@ public class Ticket {
     private PrioridadTicket prioridad;
     
     // Justificación para el cierre del ticket, solo se llena si el estado es CERRADO
-    @Column(columnDefinition = "TEXT")
-    private String justifiacionCierre; 
+    @Column(name = "justificacion_cierre", columnDefinition = "TEXT")
+    private String justifiacionCierre;
 
     // Almacena la URL o path del archivo adjunto como evidencia de cierre.
     private String imagenCierre;
@@ -82,13 +78,10 @@ public class Ticket {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Usuario agenteAsignado;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "categoria_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private CategoriaTicket categoria;
+    // Eliminamos categoria para simplificar el modelo, ya que el campo "problema" puede ser suficiente para clasificar el ticket.
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "problema_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "problema_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ProblemaTicket problema;
 

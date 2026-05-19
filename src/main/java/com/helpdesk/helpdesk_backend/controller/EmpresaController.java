@@ -13,58 +13,44 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.helpdesk.helpdesk_backend.model.Empresa;
+import com.helpdesk.helpdesk_backend.dto.EmpresaRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
 import com.helpdesk.helpdesk_backend.service.EmpresaService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/empresas")
+@RequiredArgsConstructor
 public class EmpresaController {
 
     private final EmpresaService empresaService;
 
-    public EmpresaController(EmpresaService empresaService) {
-        this.empresaService = empresaService;
-    }
-
-    @GetMapping
-    public ResponseEntity<List<Empresa>> listarTodos() {
-        return ResponseEntity.ok(empresaService.listarTodos());
+    @PostMapping
+    public ResponseEntity<EmpresaResponseDTO> crearEmpresa(@Valid @RequestBody EmpresaRequestDTO requestDTO){
+        EmpresaResponseDTO nuevaEmpresa = empresaService.crearEmpresa(requestDTO);
+        return new ResponseEntity<>(nuevaEmpresa, HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Empresa> buscarPorId(@PathVariable Long id) {
-        return empresaService.buscarPorId(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<EmpresaResponseDTO> obtenerEmpresa(@PathVariable Long id){
+        return ResponseEntity.ok(empresaService.obtenerEmpresaPorId(id));
     }
 
-    @GetMapping("/ruc/{ruc}")
-    public ResponseEntity<Empresa> buscarPorRuc(@PathVariable String ruc) {
-        return empresaService.buscarPorRuc(ruc)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @GetMapping("/correo/{correo}")
-    public ResponseEntity<Empresa> buscarPorCorreo(@PathVariable String correo) {
-        return empresaService.buscarPorCorreoContacto(correo)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping
-    public ResponseEntity<Empresa> guardar(@RequestBody Empresa empresa) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(empresaService.guardar(empresa));
+    @GetMapping
+    public ResponseEntity<List<EmpresaResponseDTO>> listarEmpresasActivas() {
+        return ResponseEntity.ok(empresaService.listarEmpresasActivas());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Empresa> actualizar(@PathVariable Long id, @RequestBody Empresa empresa) {
-        return ResponseEntity.ok(empresaService.actualizar(id, empresa));
+    public ResponseEntity<EmpresaResponseDTO> actualizarEmpresa(@PathVariable Long id, @Valid @RequestBody EmpresaRequestDTO requestDTO) {
+        return ResponseEntity.ok(empresaService.actualizarEmpresa(id, requestDTO));
     }
-
+    
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        empresaService.eliminar(id);
+    public ResponseEntity<Void> eliminarEmpresa(@PathVariable Long id){
+        empresaService.eliminarEmpresa(id);
         return ResponseEntity.noContent().build();
-    }
+    }   
 }

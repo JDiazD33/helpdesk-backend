@@ -1,93 +1,97 @@
 package com.helpdesk.helpdesk_backend.controller;
 
-import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(CategoriaTicketController.class)
 class CategoriaTicketControllerTest {
 
-    @Mock
-    private CategoriaTicketService categoriaTicketService;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @InjectMocks
-    private CategoriaTicketController categoriaTicketController;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-    @Test
-    void listarTodos() {
-        when(categoriaTicketService.listarTodas()).thenReturn(List.of(new CategoriaTicket()));
-        ResponseEntity<List<CategoriaTicket>> response = categoriaTicketController.listarTodos();
-        
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(1, response.getBody().size());
+    @MockitoBean
+    private CategoriaTicketService categoriaService;
+
+    private CategoriaRequestDTO requestDTO;
+    private CategoriaResponseDTO responseDTO;
+
+    private final Long EMPRESA_ID = 1L;
+    private final Long CATEGORIA_ID = 10L;
+
+    @BeforeEach
+    void setUp() {
+        requestDTO = new CategoriaRequestDTO();
+        requestDTO.setNombre("Hardware");
+        requestDTO.setDescripcion("Problemas físicos");
+
+        responseDTO = new CategoriaResponseDTO();
+        responseDTO.setId(CATEGORIA_ID);
+        responseDTO.setNombre("Hardware");
+        responseDTO.setDescripcion("Problemas físicos");
+        responseDTO.setActiva(true);
     }
 
     @Test
-    void buscarPorId_existente() {
-        when(categoriaTicketService.buscarPorId(1L)).thenReturn(Optional.of(new CategoriaTicket()));
-        ResponseEntity<CategoriaTicket> response = categoriaTicketController.buscarPorId(1L);
-        
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
+    void listarCategoriasActivas_DebeRetornarListaYEstado200() throws Exception {
+        when(categoriaService.listarCategoriasActivas(EMPRESA_ID)).thenReturn(List.of(responseDTO));
+
+        mockMvc.perform(get("/api/categorias/activas")
+                        .header("X-Empresa-Id", EMPRESA_ID)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(1))
+                .andExpect(jsonPath("$[0].nombre").value("Hardware"));
     }
 
     @Test
-    void buscarPorId_noExiste() {
-        when(categoriaTicketService.buscarPorId(1L)).thenReturn(Optional.empty());
-        ResponseEntity<CategoriaTicket> response = categoriaTicketController.buscarPorId(1L);
-        
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    void crearCategoria_DebeRetornarCategoriaCreadaYEstado201() throws Exception {
+        when(categoriaService.crearCategoria(any(CategoriaRequestDTO.class), eq(EMPRESA_ID)))
+                .thenReturn(responseDTO);
+
+        mockMvc.perform(post("/api/categorias")
+                        .header("X-Empresa-Id", EMPRESA_ID)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nombre").value("Hardware"));
     }
 
     @Test
-    void listarPorEmpresa() {
-        when(categoriaTicketService.listarPorEmpresaId(10L)).thenReturn(List.of(new CategoriaTicket()));
-        ResponseEntity<List<CategoriaTicket>> response = categoriaTicketController.listarPorEmpresa(10L);
-        
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
+    void crearCategoria_DebeRetornar400SiFaltaHeaderEmpresaId() throws Exception {
+        mockMvc.perform(post("/api/categorias")
+                        // Omitimos el header deliberadamente para probar la seguridad Multi-tenant
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void guardar() {
-        CategoriaTicket categoria = new CategoriaTicket();
-        when(categoriaTicketService.guardar(any(CategoriaTicket.class))).thenReturn(categoria);
-        
-        ResponseEntity<CategoriaTicket> response = categoriaTicketController.guardar(new CategoriaTicket());
-        
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
-    }
+    void eliminarCategoria_DebeRetornarEstado204() throws Exception {
+        mockMvc.perform(delete("/api/categorias/{id}", CATEGORIA_ID)
+                        .header("X-Empresa-Id", EMPRESA_ID))
+                .andExpect(status().isNoContent());
 
-    @Test
-    void actualizar() {
-        CategoriaTicket categoria = new CategoriaTicket();
-        when(categoriaTicketService.actualizar(eq(1L), any(CategoriaTicket.class))).thenReturn(categoria);
-        
-        ResponseEntity<CategoriaTicket> response = categoriaTicketController.actualizar(1L, new CategoriaTicket());
-        
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-    }
-
-    @Test
-    void eliminar() {
-        doNothing().when(categoriaTicketService).eliminar(1L);
-        ResponseEntity<Void> response = categoriaTicketController.eliminar(1L);
-        
-        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-        verify(categoriaTicketService, times(1)).eliminar(1L);
+        verify(categoriaService).eliminarCategoria(CATEGORIA_ID, EMPRESA_ID);
     }
 }

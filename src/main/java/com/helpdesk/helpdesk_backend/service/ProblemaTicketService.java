@@ -1,31 +1,17 @@
 package com.helpdesk.helpdesk_backend.service;
 
 import java.util.List;
-import java.util.Optional;
 
-import com.helpdesk.helpdesk_backend.model.ProblemaTicket;
+import com.helpdesk.helpdesk_backend.dto.ProblemaRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
 
 public interface ProblemaTicketService {
 
-    //Devuelve problemas de la bd
-    List<ProblemaTicket> listarTodos();
+    List<ProblemaResponseDTO> listarProblemasPorCategoria(Long categoriaId, Long empresaId);
 
-    //Busca problema por id, usa optional para evitar errores de inexistencia
-    Optional<ProblemaTicket> buscarPorId(Long id);
+    ProblemaResponseDTO crearProblema(ProblemaRequestDTO requestDTO, Long empresaId);
 
-    //Crear nuevo problema
-    ProblemaTicket guardar(ProblemaTicket problemaTicket);
+    ProblemaResponseDTO actualizarProblema(Long id, ProblemaRequestDTO requestDTO, Long empresaId);
 
-    //Actualizar problema existente
-    ProblemaTicket actualizar(Long id, ProblemaTicket problemaTicket);
-
-    //Desactivar problema (NO ELIMINA)
-    void eliminar(Long id);
-
-    // Filtros
-    //Lista problemas por categoria
-    List<ProblemaTicket> listarPorCategoriaId(Long categoriaId);
-
-    //Lista problemas por problema activo/inactivo
-    List<ProblemaTicket> listarPorActivo(boolean activo);
+    void eliminarProblema(Long id, Long empresaId);
 }

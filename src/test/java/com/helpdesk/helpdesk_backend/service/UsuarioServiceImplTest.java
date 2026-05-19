@@ -1,21 +1,32 @@
 package com.helpdesk.helpdesk_backend.service;
 
+import com.helpdesk.helpdesk_backend.dto.UsuarioRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.UsuarioResponseDTO;
+import com.helpdesk.helpdesk_backend.mapper.UsuarioMapper;
+import com.helpdesk.helpdesk_backend.model.Empresa;
+import com.helpdesk.helpdesk_backend.model.Rol;
 import com.helpdesk.helpdesk_backend.model.Usuario;
+import com.helpdesk.helpdesk_backend.repository.EmpresaRepository;
+import com.helpdesk.helpdesk_backend.repository.RolRepository;
 import com.helpdesk.helpdesk_backend.repository.UsuarioRepository;
 import com.helpdesk.helpdesk_backend.service.impl.UsuarioServiceImpl;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UsuarioServiceImplTest {
@@ -23,192 +34,146 @@ class UsuarioServiceImplTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private RolRepository rolRepository;
+
+    @Mock
+    private EmpresaRepository empresaRepository;
+
+    @Mock
+    private UsuarioMapper usuarioMapper;
+
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
 
-    // --- Tests para GUARDAR ---
+    private UsuarioRequestDTO requestDTO;
+    private Usuario usuarioMock;
+    private Empresa empresaMock;
+    private Rol rolMock;
+    private UsuarioResponseDTO responseDTO;
 
-    @Test
-    void guardar_exito() {
-        Usuario usuario = new Usuario();
-        usuario.setEmail("test@test.com");
+    private final Long EMPRESA_CONTEXTO_ID = 1L;
 
-        when(usuarioRepository.existsByEmail("test@test.com")).thenReturn(false);
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
+    @BeforeEach
+    void setUp() {
+        // Inicializamos los objetos comunes para no repetir código en cada test
+        empresaMock = Empresa.builder().id(EMPRESA_CONTEXTO_ID).nombre("Empresa Alpha").build();
+        rolMock = Rol.builder().id(1L).nombre("ADMIN").build();
 
-        Usuario resultado = usuarioService.guardar(usuario);
-        assertNotNull(resultado);
-        assertEquals("test@test.com", resultado.getEmail());
+        requestDTO = UsuarioRequestDTO.builder()
+                .nombres("Juan")
+                .apellidos("Perez")
+                .email("juan@alpha.com")
+                .password("secret")
+                .rolId(1L)
+                .build();
+
+        usuarioMock = Usuario.builder()
+                .id(100L)
+                .nombres("Juan")
+                .apellidos("Pérez")
+                .email("juan@alpha.com")
+                .empresa(empresaMock)
+                .rol(rolMock)
+                .activo(true)
+                .build();
+
+        responseDTO = UsuarioResponseDTO.builder()
+                .id(100L)
+                .nombres("Juan")
+                .email("juan@alpha.com")
+                .empresaId(EMPRESA_CONTEXTO_ID)
+                .rolNombre("ADMIN")
+                .build();
     }
 
     @Test
-    void guardar_fallaPorEmailDuplicado() {
-        Usuario usuario = new Usuario();
-        usuario.setEmail("duplicado@test.com");
+    void crearUsuario_CuandoDatosSonValidos_GuardaYRetornaResponseDTO(){
+        // Arrage: Preparamos las respuestas de nuestros mocks
+        when(usuarioRepository.existsByEmail(requestDTO.getEmail())).thenReturn(false);
+        when(usuarioMapper.toEntity(requestDTO)).thenReturn(usuarioMock);
 
-        when(usuarioRepository.existsByEmail("duplicado@test.com")).thenReturn(true);
+        // Simulamos la búsqueda de las entidades reales (Corrección de Objeto Huérfano)
+        when(rolRepository.findById(requestDTO.getRolId())).thenReturn(Optional.of(rolMock));
+        when(empresaRepository.findById(EMPRESA_CONTEXTO_ID)).thenReturn(Optional.of(empresaMock));
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> usuarioService.guardar(usuario));
-        assertTrue(ex.getMessage().contains("Ya existe un usuario con el email"));
-    }
+        when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuarioMock);
+        when(usuarioMapper.toResponseDTO(usuarioMock)).thenReturn(responseDTO);
 
-    // --- Tests para ACTUALIZAR (Manejando todas las ramas lógicas) ---
+        // Act: Ejecutamos el método del servicio
+        UsuarioResponseDTO resultado = usuarioService.crearUsuario(requestDTO, EMPRESA_CONTEXTO_ID);
 
-    @Test
-    void actualizar_exito_mismoEmail_sinPassword() {
-        // Camino 1: Mismo email (no busca en BD) y Password NULO (no actualiza password)
-        Usuario existente = new Usuario();
-        existente.setId(1L);
-        existente.setEmail("juan@test.com");
-        existente.setPassword("clave_vieja");
+        // Assert: Verificamos los resultados
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.getEmail()).isEqualTo("juan@alpha.com");
+        assertThat(resultado.getRolNombre()).isEqualTo("ADMIN");
 
-        Usuario nuevosDatos = new Usuario();
-        nuevosDatos.setEmail("juan@test.com"); // Mismo email
-        nuevosDatos.setPassword(null); // Password nulo
-
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existente));
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(existente);
-
-        Usuario resultado = usuarioService.actualizar(1L, nuevosDatos);
-
-        assertEquals("juan@test.com", resultado.getEmail());
-        assertEquals("clave_vieja", resultado.getPassword()); // Mantuvo la clave vieja
-        verify(usuarioRepository, never()).existsByEmail(anyString());
+        // Verificamos que efectivamente se haya llamado a la BD para validar Rol y Empresa
+        verify(rolRepository, times(1)).findById(requestDTO.getRolId());
+        verify(empresaRepository, times(1)).findById(EMPRESA_CONTEXTO_ID);
+        verify(usuarioRepository, times(1)).save(any(Usuario.class));
     }
 
     @Test
-    void actualizar_exito_diferenteEmail_passwordVacio() {
-        // Camino 2: Diferente email, pero libre en BD. Password VACÍO (no actualiza password)
-        Usuario existente = new Usuario();
-        existente.setId(1L);
-        existente.setEmail("juan@test.com");
-        existente.setPassword("clave_vieja");
+    void crearUsuario_CuandoEmpresaContextoNoCoincide_LanzaExcepcionDeSeguridad() {
+        // Arrange: Simulamos que alguien intenta crear un usuario para la empresa 1, pero su token es de la empresa 999
+        Long empresaContextoHacker = 999L;
 
-        Usuario nuevosDatos = new Usuario();
-        nuevosDatos.setEmail("nuevo@test.com");
-        nuevosDatos.setPassword(""); // Password vacío
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            usuarioService.crearUsuario(requestDTO, empresaContextoHacker);
+        });
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existente));
-        when(usuarioRepository.existsByEmail("nuevo@test.com")).thenReturn(false);
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(existente);
-
-        Usuario resultado = usuarioService.actualizar(1L, nuevosDatos);
-
-        assertEquals("nuevo@test.com", resultado.getEmail());
-        assertEquals("clave_vieja", resultado.getPassword()); // Mantuvo la clave vieja
+        assertThat(exception.getMessage()).contains("Violación de seguridad");
+        
+        // Verificamos que la base de datos NUNCA fue tocada tras el fallo de seguridad
+        verify(usuarioRepository, never()).save(any(Usuario.class));
     }
 
     @Test
-    void actualizar_exito_passwordValido() {
-        // Camino 3: Actualiza todos los campos incluyendo el password
-        Usuario existente = new Usuario();
-        existente.setId(1L);
-        existente.setEmail("juan@test.com");
+    void crearUsuario_CuandoEmailYaExiste_LanzaExcepcion() {
+        // Arrange
+        when(usuarioRepository.existsByEmail(requestDTO.getEmail())).thenReturn(true);
 
-        Usuario nuevosDatos = new Usuario();
-        nuevosDatos.setEmail("juan@test.com");
-        nuevosDatos.setPassword("nueva_clave"); // Password válido
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            usuarioService.crearUsuario(requestDTO, EMPRESA_CONTEXTO_ID);
+        });
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existente));
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(existente);
-
-        Usuario resultado = usuarioService.actualizar(1L, nuevosDatos);
-
-        assertEquals("nueva_clave", resultado.getPassword()); // Clave actualizada
+        assertThat(exception.getMessage()).contains("ya está registrado");
+        verify(usuarioRepository, never()).save(any(Usuario.class));
     }
 
     @Test
-    void actualizar_falla_diferenteEmailYDuplicado() {
-        // Camino 4: Diferente email pero ya existe en BD -> Excepción
-        Usuario existente = new Usuario();
-        existente.setId(1L);
-        existente.setEmail("juan@test.com");
+    void obtenerUsuarioPorId_CuandoPerteneceAEmpresa_RetornaUsuario() {
+        // Arrange
+        when(usuarioRepository.findByIdAndEmpresaId(100L, EMPRESA_CONTEXTO_ID))
+                .thenReturn(Optional.of(usuarioMock));
+        when(usuarioMapper.toResponseDTO(usuarioMock)).thenReturn(responseDTO);
 
-        Usuario nuevosDatos = new Usuario();
-        nuevosDatos.setEmail("ocupado@test.com");
+        // Act
+        UsuarioResponseDTO resultado = usuarioService.obtenerUsuarioPorId(100L, EMPRESA_CONTEXTO_ID);
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existente));
-        when(usuarioRepository.existsByEmail("ocupado@test.com")).thenReturn(true);
-
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> usuarioService.actualizar(1L, nuevosDatos));
-        assertTrue(ex.getMessage().contains("Ya existe otro usuario"));
+        // Assert
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.getId()).isEqualTo(100L);
     }
 
     @Test
-    void actualizar_fallaPorNoEncontrado() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.empty());
-        assertThrows(RuntimeException.class, () -> usuarioService.actualizar(1L, new Usuario()));
+    void eliminarUsuario_CuandoPerteneceAEmpresa_AplicaBorradoLogico() {
+        // Arrange
+        when(usuarioRepository.findByIdAndEmpresaId(100L, EMPRESA_CONTEXTO_ID))
+                .thenReturn(Optional.of(usuarioMock));
+
+        // Act
+        usuarioService.eliminarUsuario(100L, EMPRESA_CONTEXTO_ID);
+
+        // Assert
+        // Verificamos que el estado activo pasó a false
+        assertThat(usuarioMock.isActivo()).isFalse(); 
+        
+        // Verificamos que el repositorio guardó la entidad mutada
+        verify(usuarioRepository, times(1)).save(usuarioMock); 
     }
 
-    // --- Tests para ELIMINAR ---
-
-    @Test
-    void eliminar_exito() {
-        when(usuarioRepository.existsById(1L)).thenReturn(true);
-        usuarioService.eliminar(1L);
-        verify(usuarioRepository, times(1)).deleteById(1L);
-    }
-
-    @Test
-    void eliminar_fallaPorNoEncontrado() {
-        when(usuarioRepository.existsById(1L)).thenReturn(false);
-        assertThrows(RuntimeException.class, () -> usuarioService.eliminar(1L));
-        verify(usuarioRepository, never()).deleteById(anyLong());
-    }
-
-    // --- Tests para LISTAR y BUSCAR (Consultas de solo lectura) ---
-
-    @Test
-    void listarTodos() {
-        when(usuarioRepository.findAll()).thenReturn(List.of(new Usuario()));
-        assertFalse(usuarioService.listarTodos().isEmpty());
-    }
-
-    @Test
-    void buscarPorId() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(new Usuario()));
-        assertTrue(usuarioService.buscarPorId(1L).isPresent());
-    }
-
-    @Test
-    void buscarPorEmail() {
-        when(usuarioRepository.findByEmail("test@test.com")).thenReturn(Optional.of(new Usuario()));
-        assertTrue(usuarioService.buscarPorEmail("test@test.com").isPresent());
-    }
-
-    @Test
-    void existeEmail() {
-        when(usuarioRepository.existsByEmail("test@test.com")).thenReturn(true);
-        assertTrue(usuarioService.existeEmail("test@test.com"));
-    }
-
-    @Test
-    void listarPorEmpresa() {
-        when(usuarioRepository.findByEmpresaId(10L)).thenReturn(List.of(new Usuario()));
-        assertFalse(usuarioService.listarPorEmpresa(10L).isEmpty());
-    }
-
-    @Test
-    void listarPorRol() {
-        when(usuarioRepository.findByRolId(2L)).thenReturn(List.of(new Usuario()));
-        assertFalse(usuarioService.listarPorRol(2L).isEmpty());
-    }
-
-    @Test
-    void listarActivosPorEmpresa() {
-        when(usuarioRepository.findByEmpresaIdAndActivo(10L, true)).thenReturn(List.of(new Usuario()));
-        assertFalse(usuarioService.listarActivosPorEmpresa(10L, true).isEmpty());
-    }
-
-    @Test
-    void listarPorEmpresaYRol() {
-        when(usuarioRepository.findByEmpresaIdAndRolId(10L, 2L)).thenReturn(List.of(new Usuario()));
-        assertFalse(usuarioService.listarPorEmpresaYRol(10L, 2L).isEmpty());
-    }
-
-    @Test
-    void listarPorEstado() {
-        when(usuarioRepository.findByActivo(true)).thenReturn(List.of(new Usuario()));
-        assertFalse(usuarioService.listarPorEstado(true).isEmpty());
-    }
 }

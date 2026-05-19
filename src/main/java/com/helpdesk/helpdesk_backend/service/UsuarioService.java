@@ -1,48 +1,21 @@
 package com.helpdesk.helpdesk_backend.service;
 
 import java.util.List;
-import java.util.Optional;
 
-import com.helpdesk.helpdesk_backend.model.Usuario;
+import com.helpdesk.helpdesk_backend.dto.UsuarioRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.UsuarioResponseDTO;
 
 public interface UsuarioService {
+    UsuarioResponseDTO crearUsuario(UsuarioRequestDTO requestDTO, Long empresaIdContexto);
 
-    //Buscar todos los usuarios
-    List<Usuario> listarTodos();
+    UsuarioResponseDTO obtenerUsuarioPorId(Long id, Long empresaIdContexto);
 
-    //Buscar usuario por id, usa optional para evitar errores de inexistencia
-    Optional<Usuario> buscarPorId(Long id);
+    List<UsuarioResponseDTO> listarUsuariosPorEmpresa(Long empresaIdContexto);
 
-    //Crear nuevo usuario
-    Usuario guardar(Usuario usuario);
+    List<UsuarioResponseDTO> listarUsuariosPorRol(Long empresaIdContexto, String rolNombre);
 
-    //Actualizar usuario existente
-    Usuario actualizar(Long id, Usuario usuario);
-
-    //Desactivar usuario (NO ELIMINA)
-    void eliminar(Long id);
-
-    // Filtros
-    //Busca usuario por email, usa optional para evitar errores de inexistencia
-    Optional<Usuario> buscarPorEmail(String email);
+    UsuarioResponseDTO actualizarUsuario(Long id, UsuarioRequestDTO requestDTO, Long empresaIdContexto);
     
-    //Verifica si existe usuario por email, para evitar duplicados
-    boolean existeEmail(String email);
-
-    //Lista usuarios por empresa
-    List<Usuario> listarPorEmpresa(Long empresaId);
-
-    //Lista usuarios por rol
-    List<Usuario> listarPorRol (Long rolId);
-
-    //Lista usuarios activos por empresa
-    List<Usuario> listarActivosPorEmpresa(Long empresaId, boolean activo);
-
-    //Lista usuarios por empresa y rol
-    List<Usuario> listarPorEmpresaYRol(Long empresaId, Long rolId);
-
-    //Lista usuarios por estado activo/inactivo
-    List<Usuario> listarPorEstado(boolean activo);
-
+    void eliminarUsuario(Long id, Long empresaIdContexto);
 }
 

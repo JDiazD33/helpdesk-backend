@@ -1,167 +1,137 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.helpdesk.helpdesk_backend.dto.TicketRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.TicketResponseDTO;
+import com.helpdesk.helpdesk_backend.mapper.TicketMapper;
+import com.helpdesk.helpdesk_backend.model.Empresa;
+import com.helpdesk.helpdesk_backend.model.ProblemaTicket;
 import com.helpdesk.helpdesk_backend.model.Ticket;
+import com.helpdesk.helpdesk_backend.model.Usuario;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
-import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
-import com.helpdesk.helpdesk_backend.repository.CategoriaTicketRepository;
 import com.helpdesk.helpdesk_backend.repository.EmpresaRepository;
+import com.helpdesk.helpdesk_backend.repository.ProblemaTicketRepository;
 import com.helpdesk.helpdesk_backend.repository.TicketRepository;
 import com.helpdesk.helpdesk_backend.repository.UsuarioRepository;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class TicketServiceImpl implements TicketService{
     
     private final TicketRepository ticketRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmpresaRepository empresaRepository;
-    private final CategoriaTicketRepository categoriaRepository;
+    private final ProblemaTicketRepository problemaRepository;
+    private final TicketMapper ticketMapper;
 
-    public TicketServiceImpl(TicketRepository ticketRepository,
-                             UsuarioRepository usuarioRepository,
-                             EmpresaRepository empresaRepository,
-                             CategoriaTicketRepository categoriaRepository) {
-        this.ticketRepository = ticketRepository;
-        this.usuarioRepository = usuarioRepository;
-        this.empresaRepository = empresaRepository;
-        this.categoriaRepository = categoriaRepository;
-    }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<Ticket> listarTodos() {
-        return ticketRepository.findAll();
-    }
+    @Transactional
+    public TicketResponseDTO crearTicket(TicketRequestDTO requestDTO, Long clienteIdContexto, Long empresaIdContexto) {
+        // 1. Validar Cliente y Empresa (Multitenancy)
+        Usuario cliente = usuarioRepository.findByIdAndEmpresaId(clienteIdContexto, empresaIdContexto)
+        .orElseThrow(() -> new RuntimeException("Cliente no encontrado en la empresa o no pertenece a la empresa"));
+        
+        Empresa empresa = empresaRepository.findById(empresaIdContexto)
+        .orElseThrow(() -> new RuntimeException("Empresa no encontrada"));
 
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<Ticket> buscarPorId(Long id) {
-        return ticketRepository.findById(id);
-    }
+        // 2. Validar Problema y su pertenencia a la empresa (Transitividad jerárquica)
+        ProblemaTicket problema = problemaRepository.findById(requestDTO.getProblemaId())
+        .orElseThrow(() -> new RuntimeException("Problema no encontrado"));
 
-    @Override
-    public Ticket guardar(Ticket ticket) {
-        // Al recibir los objetos anidados con solo el ID desde el JSON, 
-        // son entidades "desconectadas". Debemos obtener las referencias reales 
-        // para que Hibernate no de error al guardar.
-        if (ticket.getCliente() != null && ticket.getCliente().getId() != null) {
-            ticket.setCliente(usuarioRepository.getReferenceById(ticket.getCliente().getId()));
-        }
-        if (ticket.getEmpresa() != null && ticket.getEmpresa().getId() != null) {
-            ticket.setEmpresa(empresaRepository.getReferenceById(ticket.getEmpresa().getId()));
-        }
-        if (ticket.getCategoria() != null && ticket.getCategoria().getId() != null) {
-            ticket.setCategoria(categoriaRepository.getReferenceById(ticket.getCategoria().getId()));
-        }
-        if (ticket.getAgenteAsignado() != null && ticket.getAgenteAsignado().getId() != null) {
-            ticket.setAgenteAsignado(usuarioRepository.getReferenceById(ticket.getAgenteAsignado().getId()));
+        if (!problema.getCategoria().getEmpresa().getId().equals(empresaIdContexto)) {
+            throw new RuntimeException("Violacion de seguridad: El problema no pertenece a su empresa.");
         }
 
-        // Generar un codigo unico si no lo tiene
-        if (ticket.getCodigo() == null || ticket.getCodigo().isEmpty()) {
-            ticket.setCodigo("TCK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        // 3. Mapear y ensamblar la entidad
+        Ticket ticket = ticketMapper.toEntity(requestDTO);
+        ticket.setCliente(cliente);
+        ticket.setProblema(problema);
+        ticket.setEmpresa(empresa);
+        // El @PrePersist se encargará de poner el estado en ABIERTO y generar el código autogenerado
+
+        Ticket ticketGuardado = ticketRepository.save(ticket);
+        return ticketMapper.toResponseDTO(ticketGuardado);
+    }
+
+
+    @Override
+    @Transactional
+    public TicketResponseDTO asignarAgente(Long ticketId, Long agenteId, Long empresaIdContexto) {
+        Ticket ticket = ticketRepository.findByIdAndEmpresaId(ticketId, empresaIdContexto)
+        .orElseThrow(() -> new RuntimeException("Ticket no encontrado o no pertenece a la empresa"));
+        
+        Usuario agente = usuarioRepository.findByIdAndEmpresaId(agenteId, empresaIdContexto)
+        .orElseThrow(() -> new RuntimeException("Agente no encontrado o no pertenece a la empresa"));
+
+        ticket.setAgenteAsignado(agente);
+
+        // Regla de Negocio: Si estaba ABIERTO, pasa a EN_PROGRESO al asignar un agente
+        if (ticket.getEstado() == EstadoTicket.ABIERTO) {
+            ticket.setEstado(EstadoTicket.EN_PROGRESO);
         }
 
-        if (ticketRepository.existsByCodigo(ticket.getCodigo())) {
-            throw new RuntimeException("Error: Ya existe un ticket con ese código.");
+        return ticketMapper.toResponseDTO(ticketRepository.save(ticket));
+    }
+
+    @Override
+    @Transactional
+    public TicketResponseDTO cambiarEstado(Long ticketId, EstadoTicket nuevoEstado, String justificacionCierre,
+            Long empresaIdContexto) {
+        Ticket ticket = ticketRepository.findByIdAndEmpresaId(ticketId, empresaIdContexto)
+        .orElseThrow(() -> new RuntimeException("Ticket no encontrado o no pertenece a la empresa"));
+
+        if (nuevoEstado == EstadoTicket.RESUELTO || nuevoEstado == EstadoTicket.CERRADO) {
+            if (justificacionCierre == null || justificacionCierre.trim().isEmpty()) {
+                throw new RuntimeException("Justificación de cierre es obligatoria para resolver o cerrar un ticket.");  
+            }
+            ticket.setJustifiacionCierre(justificacionCierre);
         }
-        return ticketRepository.save(ticket);
-    }
 
-    @Override
-    public Ticket actualizar(Long id, Ticket ticket) {
-        Ticket ticketExistente = ticketRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Error: Ticket no encontrado con el id " + id));
-
-        ticketExistente.setTitulo(ticket.getTitulo());
-        ticketExistente.setDescripcion(ticket.getDescripcion());
-        if (ticket.getEstado() != null) {
-            ticketExistente.setEstado(ticket.getEstado());
-        }
-        if (ticket.getPrioridad() != null) {
-            ticketExistente.setPrioridad(ticket.getPrioridad());
-        }
-        ticketExistente.setCliente(ticket.getCliente());
-        ticketExistente.setAgenteAsignado(ticket.getAgenteAsignado());
-        ticketExistente.setCategoria(ticket.getCategoria());
-        ticketExistente.setEmpresa(ticket.getEmpresa());
-
-        return ticketRepository.save(ticketExistente);
-    }
-
-    @Override
-    public void eliminar(Long id) {
-        if (!ticketRepository.existsById(id)) {
-            throw new RuntimeException("Error: No se puede eliminar. Ticket no encontrado con el id " + id);
-        }
-        ticketRepository.deleteById(id);
+        ticket.setEstado(nuevoEstado);
+        return ticketMapper.toResponseDTO(ticketRepository.save(ticket));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Ticket> buscarPorCodigo(String codigo) {
-        return ticketRepository.findByCodigo(codigo);
+    public TicketResponseDTO obtenerPorId(Long ticketId, Long empresaIdContexto) {
+        Ticket ticket = ticketRepository.findByIdAndEmpresaId(ticketId, empresaIdContexto)
+        .orElseThrow(() -> new RuntimeException("Ticket no encontrado o no pertenece a la empresa"));
+        return ticketMapper.toResponseDTO(ticket);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Ticket> listarPorEmpresaId(Long empresaId) {
-        return ticketRepository.findByEmpresaId(empresaId);
+    public Page<TicketResponseDTO> listarTodosPorEmpresa(Long empresaIdContexto, Pageable pageable) {
+        return ticketRepository.findAllByEmpresaId(empresaIdContexto, pageable).map(ticketMapper::toResponseDTO);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Ticket> listarPorClienteId(Long clienteId) {
-        return ticketRepository.findByClienteId(clienteId);
+    public Page<TicketResponseDTO> listarPorCliente(Long clienteId, Long empresaIdContexto, Pageable pageable) {
+        return ticketRepository.findAllByEmpresaIdAndClienteId(empresaIdContexto, clienteId, pageable)
+        .map(ticketMapper::toResponseDTO);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Ticket> listarPorAgenteAsignadoId(Long agenteAsignadoId) {
-        return ticketRepository.findByAgenteAsignadoId(agenteAsignadoId);
+    public Page<TicketResponseDTO> listarPorAgente(Long agenteId, Long empresaIdContexto, Pageable pageable) {
+        return ticketRepository.findAllByEmpresaIdAndAgenteAsignadoId(empresaIdContexto, agenteId, pageable)
+        .map(ticketMapper::toResponseDTO);
     }
-
+    
     @Override
     @Transactional(readOnly = true)
-    public List<Ticket> listarPorCategoriaId(Long categoriaId) {
-        return ticketRepository.findByCategoriaId(categoriaId);
+    public Page<TicketResponseDTO> listarNoAsignados(Long empresaIdContexto, Pageable pageable) {
+        return ticketRepository.findAllByEmpresaIdAndAgenteAsignadoIdIsNull(empresaIdContexto, pageable)
+        .map(ticketMapper::toResponseDTO);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<Ticket> listarPorEstado(EstadoTicket estado) {
-        return ticketRepository.findByEstado(estado);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<Ticket> listarPorPrioridad(PrioridadTicket prioridad) {
-        return ticketRepository.findByPrioridad(prioridad);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<Ticket> listarPorEmpresaIdYEstado(Long empresaId, EstadoTicket estado) {
-        return ticketRepository.findByEmpresaIdAndEstado(empresaId, estado);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<Ticket> listarPorEmpresaIdYPrioridad(Long empresaId, PrioridadTicket prioridad) {
-        return ticketRepository.findByEmpresaIdAndPrioridad(empresaId, prioridad);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public boolean existePorCodigo(String codigo) {
-        return ticketRepository.existsByCodigo(codigo);
-    }
 }

@@ -15,15 +15,6 @@ import com.helpdesk.helpdesk_backend.model.Usuario;
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface UsuarioMapper {
 
-    // --- DE ENTIDAD A DTO DE SALIDA (RESPONSE) ---
-    // Extraemos los IDs de las relaciones
-    @Mapping(source = "empresa.id", target = "empresaId")
-    @Mapping(source = "rol.id", target = "rolId")
-    // Extraemos los nombres explícitamente para evitar devolver los objetos completos
-    @Mapping(source = "empresa.nombre", target = "empresaNombre")
-    @Mapping(source = "rol.nombre", target = "rolNombre")
-    UsuarioResponseDTO toResponseDTO(Usuario usuario);
-
     // --- DE DTO DE ENTRADA (REQUEST) A ENTIDAD ---
     // Mapeamos los IDs del DTO entrante a los IDs de los objetos relacionados dentro de la entidad
     @Mapping(source = "rolId", target = "rol.id")
@@ -34,4 +25,14 @@ public interface UsuarioMapper {
     // Agregamos para ignorar la empresa, ya que no se recibe en el DTO de usuario y se asignará en la lógica de negocio
     @Mapping(target = "empresa", ignore = true)
     Usuario toEntity(UsuarioRequestDTO requestDTO);
+
+    // --- DE ENTIDAD A DTO DE SALIDA (RESPONSE) ---
+    // Extraemos los IDs de las relaciones
+    @Mapping(source = "empresa.id", target = "empresaId")
+    @Mapping(source = "rol.id", target = "rolId")
+    // Extraemos los nombres explícitamente para evitar devolver los objetos completos
+    @Mapping(source = "empresa.nombre", target = "empresaNombre")
+    @Mapping(source = "rol.nombre", target = "rolNombre")
+    UsuarioResponseDTO toResponseDTO(Usuario usuario);
+
 }

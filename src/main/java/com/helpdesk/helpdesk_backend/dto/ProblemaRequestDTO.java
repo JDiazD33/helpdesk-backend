@@ -8,8 +8,10 @@ import lombok.Setter;
 
 @Getter
 @Setter
+// Informacion que entra al sistema para crear o actualizar un ProblemaTicket
 public class ProblemaRequestDTO {
 
+    // REGLAS DE VALIDACION:
     @NotBlank(message = "El nombre del problema es obligatorio")
     @Size(max = 100, message = "El nombre no puede exceder los 100 caracteres")
     private String nombre; 

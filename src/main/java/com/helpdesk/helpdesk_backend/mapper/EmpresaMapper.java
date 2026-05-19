@@ -14,15 +14,16 @@ import com.helpdesk.helpdesk_backend.model.Empresa;
  */
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface EmpresaMapper {
-    // --- DE ENTIDAD A DTO DE SALIDA (RESPONSE) ---
-    // Mapeo directo de todos los atributos de la entidad al DTO de respuesta
-    EmpresaResponseDTO toResponseDTO(Empresa empresa);
 
-    // --- DE DTO DE ENTRADA (REQUEST) A ENTIDAD ---
+        // --- DE DTO DE ENTRADA (REQUEST) A ENTIDAD ---
     // Ignoramos los campos que son gestionados por la BD o el ciclo de vida de la entidad
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "activo", ignore = true)
     @Mapping(target = "fechaCreacion", ignore = true)
     Empresa toEntity(EmpresaRequestDTO requestDTO);
+
+    // --- DE ENTIDAD A DTO DE SALIDA (RESPONSE) ---
+    // Mapeo directo de todos los atributos de la entidad al DTO de respuesta
+    EmpresaResponseDTO toResponseDTO(Empresa empresa);
 
 }

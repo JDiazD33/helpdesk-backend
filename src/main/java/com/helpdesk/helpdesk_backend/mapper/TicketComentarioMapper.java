@@ -2,12 +2,14 @@ package com.helpdesk.helpdesk_backend.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
+import org.mapstruct.ReportingPolicy;
 
 import com.helpdesk.helpdesk_backend.dto.ComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ComentarioResponseDTO;
 import com.helpdesk.helpdesk_backend.model.TicketComentario;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface TicketComentarioMapper {
 
     @Mapping(source = "ticketId", target = "ticket.id")

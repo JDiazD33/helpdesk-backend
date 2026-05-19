@@ -2,13 +2,14 @@ package com.helpdesk.helpdesk_backend.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
 import org.mapstruct.MappingTarget;
 
 import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
 import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface CategoriaTicketMapper {
 
     @Mapping(target = "id", ignore = true)

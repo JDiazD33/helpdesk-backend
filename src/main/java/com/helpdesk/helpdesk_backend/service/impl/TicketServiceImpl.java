@@ -31,7 +31,6 @@ public class TicketServiceImpl implements TicketService{
     private final ProblemaTicketRepository problemaRepository;
     private final TicketMapper ticketMapper;
 
-
     @Override
     @Transactional
     public TicketResponseDTO crearTicket(TicketRequestDTO requestDTO, Long clienteIdContexto, Long empresaIdContexto) {
@@ -60,7 +59,6 @@ public class TicketServiceImpl implements TicketService{
         Ticket ticketGuardado = ticketRepository.save(ticket);
         return ticketMapper.toResponseDTO(ticketGuardado);
     }
-
 
     @Override
     @Transactional

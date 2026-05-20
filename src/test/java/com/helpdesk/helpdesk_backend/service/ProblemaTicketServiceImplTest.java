@@ -2,7 +2,6 @@ package com.helpdesk.helpdesk_backend.service;
 
 import com.helpdesk.helpdesk_backend.dto.ProblemaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
-import com.helpdesk.helpdesk_backend.mapper.ProblemaTicketMapper;
 import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
 import com.helpdesk.helpdesk_backend.model.Empresa;
 import com.helpdesk.helpdesk_backend.model.ProblemaTicket;
@@ -27,17 +26,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ProblemaTicketServiceImplTest {
 
-    //Simula la base de datos
     @Mock
     private ProblemaTicketRepository problemaRepository;
 
     @Mock
     private CategoriaTicketRepository categoriaRepository;
 
-    @Mock
-    private ProblemaTicketMapper problemaMapper;
-
-    //Inyecta el repositorio falso en el service real
     @InjectMocks
     private ProblemaTicketServiceImpl problemaService;
 
@@ -60,6 +54,7 @@ class ProblemaTicketServiceImplTest {
         categoria.setId(CATEGORIA_ID);
         categoria.setEmpresa(empresa);
         categoria.setActiva(true);
+        categoria.setNombre("Hardware");
 
         problema = new ProblemaTicket();
         problema.setId(PROBLEMA_ID);
@@ -79,33 +74,21 @@ class ProblemaTicketServiceImplTest {
 
     @Test
     void crearProblema_DebeGuardarEvitandoObjetoHuerfano() {
-        // Arrange
-        // Simulamos la búsqueda de la categoría para asegurar que pertenece a la empresa correcta
-        when(categoriaRepository.findByIdAndEmpresaIdAndActivaTrue(CATEGORIA_ID, EMPRESA_ID))
-                .thenReturn(Optional.of(categoria));
-        when(problemaRepository.existsByNombreAndCategoriaId(requestDTO.getNombre(), CATEGORIA_ID))
-                .thenReturn(false);
-        when(problemaMapper.toEntity(requestDTO)).thenReturn(problema);
+        when(categoriaRepository.findById(CATEGORIA_ID)).thenReturn(Optional.of(categoria));
+        when(problemaRepository.existsByNombreAndCategoriaId(requestDTO.getNombre(), CATEGORIA_ID)).thenReturn(false);
         when(problemaRepository.save(any(ProblemaTicket.class))).thenReturn(problema);
-        when(problemaMapper.toResponseDTO(problema)).thenReturn(responseDTO);
 
-        // Act
         ProblemaResponseDTO resultado = problemaService.crearProblema(requestDTO, EMPRESA_ID);
 
-        // Assert
         assertThat(resultado.getNombre()).isEqualTo("Pantalla Rota");
-        verify(categoriaRepository).findByIdAndEmpresaIdAndActivaTrue(CATEGORIA_ID, EMPRESA_ID);
-        verify(problemaRepository).save(problema);
+        verify(categoriaRepository).findById(CATEGORIA_ID);
+        verify(problemaRepository).save(any(ProblemaTicket.class));
     }
 
     @Test
     void crearProblema_DebeLanzarExcepcionSiCategoriaNoPerteneceAEmpresa() {
-        // Arrange
-        // Simulamos que la categoría NO existe para ese empresaId (Aislamiento)
-        when(categoriaRepository.findByIdAndEmpresaIdAndActivaTrue(CATEGORIA_ID, EMPRESA_ID))
-                .thenReturn(Optional.empty());
+        when(categoriaRepository.findById(CATEGORIA_ID)).thenReturn(Optional.empty());
 
-        // Act & Assert
         RuntimeException exception = assertThrows(RuntimeException.class, 
                 () -> problemaService.crearProblema(requestDTO, EMPRESA_ID));
         
@@ -115,31 +98,26 @@ class ProblemaTicketServiceImplTest {
 
     @Test
     void eliminarProblema_DebeAplicarBorradoLogicoSiPasaValidacionTransitiva() {
-        // Arrange
         when(problemaRepository.findById(PROBLEMA_ID)).thenReturn(Optional.of(problema));
 
-        // Act
         problemaService.eliminarProblema(PROBLEMA_ID, EMPRESA_ID);
 
-        // Assert
-        assertThat(problema.isActivo()).isFalse(); // Verificamos el borrado lógico
+        assertThat(problema.isActivo()).isFalse(); 
         verify(problemaRepository).save(problema);
     }
 
     @Test
     void eliminarProblema_DebeRechazarSiIntentaEliminarProblemaDeOtraEmpresa() {
-        // Arrange
         Empresa otraEmpresa = new Empresa();
         otraEmpresa.setId(99L);
-        categoria.setEmpresa(otraEmpresa); // El problema pertenece a otra empresa indirectamente
+        categoria.setEmpresa(otraEmpresa); 
         
         when(problemaRepository.findById(PROBLEMA_ID)).thenReturn(Optional.of(problema));
 
-        // Act & Assert
         RuntimeException exception = assertThrows(RuntimeException.class, 
                 () -> problemaService.eliminarProblema(PROBLEMA_ID, EMPRESA_ID));
         
-        assertThat(exception.getMessage()).contains("No tiene permisos");
+        assertThat(exception.getMessage()).contains("no pertenece a la empresa indicada");
         verify(problemaRepository, never()).save(any());
     }
 }

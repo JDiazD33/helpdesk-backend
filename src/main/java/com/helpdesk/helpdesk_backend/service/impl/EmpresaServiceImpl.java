@@ -8,69 +8,96 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.helpdesk.helpdesk_backend.dto.EmpresaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
-import com.helpdesk.helpdesk_backend.mapper.EmpresaMapper;
+import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
+import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.Empresa;
 import com.helpdesk.helpdesk_backend.repository.EmpresaRepository;
 import com.helpdesk.helpdesk_backend.service.EmpresaService;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
-public class EmpresaServiceImpl implements EmpresaService{
+@Transactional
+public class EmpresaServiceImpl implements EmpresaService {
 
     private final EmpresaRepository empresaRepository;
-    private final EmpresaMapper empresaMapper;
+
+    public EmpresaServiceImpl(EmpresaRepository empresaRepository) {
+        this.empresaRepository = empresaRepository;
+    }
+
+    private EmpresaResponseDTO mapToDTO(Empresa empresa) {
+        return EmpresaResponseDTO.builder()
+                .id(empresa.getId())
+                .nombre(empresa.getNombre())
+                .ruc(empresa.getRuc())
+                .correoContacto(empresa.getCorreoContacto())
+                .telefonoContacto(empresa.getTelefonoContacto())
+                .activo(empresa.isActivo())
+                .fechaCreacion(empresa.getFechaCreacion())
+                .build();
+    }
 
     @Override
-    @Transactional
     public EmpresaResponseDTO crearEmpresa(EmpresaRequestDTO requestDTO) {
-        // Validaciones de negocio: RUC y Correo únicos
-        if (empresaRepository.findByRuc(requestDTO.getRuc()).isPresent()) {
-            throw new RuntimeException("El RUC ya se encuentra registrado.");   
+        if (empresaRepository.existsByRuc(requestDTO.getRuc())) {
+            throw new DuplicateResourceException("Ya existe una empresa con el RUC: " + requestDTO.getRuc());
         }
-        Empresa empresa = empresaMapper.toEntity(requestDTO);
-        // El campo 'activo' se inicializa en true por el @Builder.Default
-        // y la 'fechaCreacion' por @CreationTimestamp 
-        Empresa empresaGuardada = empresaRepository.save(empresa);
-        return empresaMapper.toResponseDTO(empresaGuardada);
+        if (empresaRepository.existsByCorreoContacto(requestDTO.getCorreoContacto())) {
+            throw new DuplicateResourceException("Ya existe una empresa con el correo: " + requestDTO.getCorreoContacto());
+        }
+
+        Empresa empresa = new Empresa();
+        empresa.setNombre(requestDTO.getNombre());
+        empresa.setRuc(requestDTO.getRuc());
+        empresa.setCorreoContacto(requestDTO.getCorreoContacto());
+        empresa.setTelefonoContacto(requestDTO.getTelefonoContacto());
+        empresa.setActivo(true);
+
+        Empresa nuevaEmpresa = empresaRepository.save(empresa);
+        return mapToDTO(nuevaEmpresa);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EmpresaResponseDTO obtenerEmpresaPorId(Long id) {
-        Empresa empresa = empresaRepository.findByIdAndActivoTrue(id)
-        .orElseThrow(() -> new RuntimeException("Empresa no encontrada o inactiva"));
-        return empresaMapper.toResponseDTO(empresa);
-        
+        Empresa empresa = empresaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada con id: " + id));
+        return mapToDTO(empresa);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EmpresaResponseDTO> listarEmpresasActivas() {
-        return empresaRepository.findAll().stream().filter(Empresa::isActivo)
-        .map(empresaMapper::toResponseDTO).collect(Collectors.toList());
+        return empresaRepository.findAll().stream()
+                .filter(Empresa::isActivo)
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional
     public EmpresaResponseDTO actualizarEmpresa(Long id, EmpresaRequestDTO requestDTO) {
-        Empresa empresaExistente = empresaRepository.findByIdAndActivoTrue(id)
-        .orElseThrow(()->new RuntimeException("Empresa no encontrada o inactiva"));
+        Empresa empresaExistente = empresaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada con id: " + id));
+
+        if (!empresaExistente.getRuc().equals(requestDTO.getRuc()) && empresaRepository.existsByRuc(requestDTO.getRuc())) {
+            throw new DuplicateResourceException("Ya existe otra empresa con el RUC: " + requestDTO.getRuc());
+        }
+        if (!empresaExistente.getCorreoContacto().equals(requestDTO.getCorreoContacto()) && empresaRepository.existsByCorreoContacto(requestDTO.getCorreoContacto())) {
+            throw new DuplicateResourceException("Ya existe otra empresa con el correo: " + requestDTO.getCorreoContacto());
+        }
+
         empresaExistente.setNombre(requestDTO.getNombre());
         empresaExistente.setRuc(requestDTO.getRuc());
         empresaExistente.setCorreoContacto(requestDTO.getCorreoContacto());
         empresaExistente.setTelefonoContacto(requestDTO.getTelefonoContacto());
 
         Empresa empresaActualizada = empresaRepository.save(empresaExistente);
-        return empresaMapper.toResponseDTO(empresaActualizada);
+        return mapToDTO(empresaActualizada);
     }
 
     @Override
     public void eliminarEmpresa(Long id) {
-        Empresa empresa = empresaRepository.findByIdAndActivoTrue(id)
-        .orElseThrow(()->new RuntimeException("Empresa no encontrada o inactiva"));
-        // Aplicamos el borrado lógico en lugar de eliminar el registro
+        Empresa empresa = empresaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada con id: " + id));
         empresa.setActivo(false);
         empresaRepository.save(empresa);
     }

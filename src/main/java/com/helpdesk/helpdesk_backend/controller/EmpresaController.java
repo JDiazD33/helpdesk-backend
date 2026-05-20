@@ -18,39 +18,40 @@ import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
 import com.helpdesk.helpdesk_backend.service.EmpresaService;
 
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/empresas")
-@RequiredArgsConstructor
 public class EmpresaController {
 
     private final EmpresaService empresaService;
 
-    @PostMapping
-    public ResponseEntity<EmpresaResponseDTO> crearEmpresa(@Valid @RequestBody EmpresaRequestDTO requestDTO){
-        EmpresaResponseDTO nuevaEmpresa = empresaService.crearEmpresa(requestDTO);
-        return new ResponseEntity<>(nuevaEmpresa, HttpStatus.CREATED);
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<EmpresaResponseDTO> obtenerEmpresa(@PathVariable Long id){
-        return ResponseEntity.ok(empresaService.obtenerEmpresaPorId(id));
+    public EmpresaController(EmpresaService empresaService) {
+        this.empresaService = empresaService;
     }
 
     @GetMapping
-    public ResponseEntity<List<EmpresaResponseDTO>> listarEmpresasActivas() {
+    public ResponseEntity<List<EmpresaResponseDTO>> listarTodos() {
         return ResponseEntity.ok(empresaService.listarEmpresasActivas());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<EmpresaResponseDTO> buscarPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(empresaService.obtenerEmpresaPorId(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<EmpresaResponseDTO> guardar(@Valid @RequestBody EmpresaRequestDTO requestDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(empresaService.crearEmpresa(requestDTO));
+    }
+
     @PutMapping("/{id}")
-    public ResponseEntity<EmpresaResponseDTO> actualizarEmpresa(@PathVariable Long id, @Valid @RequestBody EmpresaRequestDTO requestDTO) {
+    public ResponseEntity<EmpresaResponseDTO> actualizar(@PathVariable Long id, @Valid @RequestBody EmpresaRequestDTO requestDTO) {
         return ResponseEntity.ok(empresaService.actualizarEmpresa(id, requestDTO));
     }
-    
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarEmpresa(@PathVariable Long id){
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         empresaService.eliminarEmpresa(id);
         return ResponseEntity.noContent().build();
-    }   
+    }
 }

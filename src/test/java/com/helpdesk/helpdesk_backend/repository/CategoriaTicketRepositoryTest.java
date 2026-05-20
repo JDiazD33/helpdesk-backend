@@ -29,7 +29,6 @@ public class CategoriaTicketRepositoryTest {
 
     @BeforeEach
     void setUp(){
-        // 1. Persistimos la Empresa 1
         empresa1 = Empresa.builder()
                 .nombre("Tech Solutions")
                 .ruc("10203040501")
@@ -39,7 +38,6 @@ public class CategoriaTicketRepositoryTest {
                 .build();
         entityManager.persist(empresa1);
 
-        // 2. Persistimos la Empresa 2 (Para probar el aislamiento Multi-tenant)
         empresa2 = Empresa.builder()
                 .nombre("Global Corp")
                 .ruc("90807060501")
@@ -49,12 +47,11 @@ public class CategoriaTicketRepositoryTest {
                 .build();
         entityManager.persist(empresa2);
 
-        // 3. Persistimos Categorías para Empresa 1
         categoriaActivaEmpresa1 = CategoriaTicket.builder()
                 .nombre("Soporte Hardware")
                 .descripcion("Problemas físicos")
                 .empresa(empresa1)
-                .activa(true) // Activa
+                .activa(true)
                 .build();
         entityManager.persist(categoriaActivaEmpresa1);
 
@@ -62,11 +59,10 @@ public class CategoriaTicketRepositoryTest {
                 .nombre("Soporte Software")
                 .descripcion("Problemas lógicos")
                 .empresa(empresa1)
-                .activa(false) // Inactiva
+                .activa(false)
                 .build();
         entityManager.persist(categoriaInactivaEmpresa1);
 
-        // 4. Persistimos Categoría para Empresa 2
         CategoriaTicket categoriaEmpresa2 = CategoriaTicket.builder()
                 .nombre("Redes")
                 .descripcion("Problemas de conectividad")
@@ -80,7 +76,7 @@ public class CategoriaTicketRepositoryTest {
 
     @Test
     void findAllByEmpresaIdAndActivaTrue_DebeRetornarSoloCategoriasActivasDeLaEmpresa() {
-        List<CategoriaTicket> resultado = categoriaRepository.findAllByEmpresaIdAndActivaTrue(empresa1.getId());
+        List<CategoriaTicket> resultado = categoriaRepository.findByEmpresaIdAndActiva(empresa1.getId(), true);
 
         assertThat(resultado).hasSize(1);
         assertThat(resultado.get(0).getNombre()).isEqualTo("Soporte Hardware");
@@ -89,8 +85,7 @@ public class CategoriaTicketRepositoryTest {
 
     @Test
     void findAllByEmpresaId_DebeRetornarTodasLasCategoriasDeLaEmpresa() {
-        // Debe traer tanto activas como inactivas de la empresa 1
-        List<CategoriaTicket> resultado = categoriaRepository.findAllByEmpresaId(empresa1.getId());
+        List<CategoriaTicket> resultado = categoriaRepository.findByEmpresaId(empresa1.getId());
         
         assertThat(resultado).hasSize(2);
     }
@@ -98,18 +93,9 @@ public class CategoriaTicketRepositoryTest {
     @Test
     void existsByNombreAndEmpresaId_DebeRetornarTrueSiElNombreExisteEnLaEmpresa() {
         boolean existe = categoriaRepository.existsByNombreAndEmpresaId("Soporte Hardware", empresa1.getId());
-        boolean noExiste = categoriaRepository.existsByNombreAndEmpresaId("Redes", empresa1.getId()); // Pertenece a empresa 2
+        boolean noExiste = categoriaRepository.existsByNombreAndEmpresaId("Redes", empresa1.getId());
         
         assertThat(existe).isTrue();
         assertThat(noExiste).isFalse();
-    }
-
-    @Test
-    void findByIdAndEmpresaIdAndActivaTrue_DebeRetornarCategoriaSiCumpleTodasLasCondiciones() {
-        Optional<CategoriaTicket> encontrada = categoriaRepository
-                .findByIdAndEmpresaIdAndActivaTrue(categoriaActivaEmpresa1.getId(), empresa1.getId());
-        
-        assertThat(encontrada).isPresent();
-        assertThat(encontrada.get().getNombre()).isEqualTo("Soporte Hardware");
     }
 }

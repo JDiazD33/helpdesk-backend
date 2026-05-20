@@ -15,4 +15,6 @@ public interface TicketComentarioRepository extends JpaRepository<TicketComentar
 
     // Contadores rapidos para la interfaz de usuario
     long countByTicketId(Long ticketId);
+
+    void deleteByTicketId(Long ticketId);
 }

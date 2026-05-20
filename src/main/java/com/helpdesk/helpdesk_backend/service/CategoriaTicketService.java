@@ -11,6 +11,8 @@ public interface CategoriaTicketService {
     
     List<CategoriaResponseDTO> listarTodas(Long empresaId);
 
+    CategoriaResponseDTO obtenerPorId(Long id, Long empresaId);
+
     CategoriaResponseDTO crearCategoria(CategoriaRequestDTO requestDTO, Long empresaId);
 
     CategoriaResponseDTO actualizarCategoria(Long id, CategoriaRequestDTO requestDTO, Long empresaId);

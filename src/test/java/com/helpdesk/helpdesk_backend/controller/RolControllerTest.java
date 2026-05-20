@@ -1,6 +1,6 @@
 package com.helpdesk.helpdesk_backend.controller;
 
-import com.helpdesk.helpdesk_backend.dto.RolResponseDTO;
+import com.helpdesk.helpdesk_backend.model.Rol;
 import com.helpdesk.helpdesk_backend.service.RolService;
 
 import static org.mockito.Mockito.when;
@@ -17,28 +17,23 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-
-
 @WebMvcTest(RolController.class)
 class RolControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    // Mock del servicio
     @MockitoBean
     private RolService rolService;
 
     @Test
-    void obtenerTodosLosRoles_DebeRetornarListaYStatus200() throws Exception {
-        // Arrage
-        RolResponseDTO dto1 = RolResponseDTO.builder().id(1L).nombre("ADMIN").build();
-        RolResponseDTO dto2 = RolResponseDTO.builder().id(2L).nombre("USER").build();
-        List<RolResponseDTO> listaRoles = Arrays.asList(dto1,dto2);
+    void listarTodos_DebeRetornarListaYStatus200() throws Exception {
+        Rol rol1 = Rol.builder().id(1L).nombre("ADMIN").build();
+        Rol rol2 = Rol.builder().id(2L).nombre("USER").build();
+        List<Rol> listaRoles = Arrays.asList(rol1, rol2);
 
-        when(rolService.obtenerTodosLosRoles()).thenReturn(listaRoles);
+        when(rolService.listarTodos()).thenReturn(listaRoles);
 
-        // Act & Assert
         mockMvc.perform(get("/api/roles")
                 .contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(status().isOk())
@@ -48,5 +43,4 @@ class RolControllerTest {
                 .andExpect(jsonPath("$[1].id").value(2))
                 .andExpect(jsonPath("$[1].nombre").value("USER"));
     }
-
 }

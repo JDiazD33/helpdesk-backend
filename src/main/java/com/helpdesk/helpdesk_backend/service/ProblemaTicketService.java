@@ -9,6 +9,10 @@ public interface ProblemaTicketService {
 
     List<ProblemaResponseDTO> listarProblemasPorCategoria(Long categoriaId, Long empresaId);
 
+    List<ProblemaResponseDTO> listarActivosPorEmpresa(Long empresaId);
+
+    ProblemaResponseDTO obtenerPorId(Long id, Long empresaId);
+
     ProblemaResponseDTO crearProblema(ProblemaRequestDTO requestDTO, Long empresaId);
 
     ProblemaResponseDTO actualizarProblema(Long id, ProblemaRequestDTO requestDTO, Long empresaId);

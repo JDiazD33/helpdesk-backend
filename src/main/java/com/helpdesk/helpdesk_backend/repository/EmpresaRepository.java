@@ -19,4 +19,8 @@ public interface EmpresaRepository extends JpaRepository<Empresa, Long> {
 
     // Método para buscar una empresa por su RUC sin importar si está activa o no
     Optional<Empresa> findByRuc(String ruc);
+
+    boolean existsByRuc(String ruc);
+
+    boolean existsByCorreoContacto(String correoContacto);
 }

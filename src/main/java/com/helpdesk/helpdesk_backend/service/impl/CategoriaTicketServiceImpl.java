@@ -8,74 +8,112 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
-import com.helpdesk.helpdesk_backend.mapper.CategoriaTicketMapper;
+import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
+import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
 import com.helpdesk.helpdesk_backend.model.Empresa;
 import com.helpdesk.helpdesk_backend.repository.CategoriaTicketRepository;
 import com.helpdesk.helpdesk_backend.repository.EmpresaRepository;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
 
-import lombok.RequiredArgsConstructor;
-
-
 @Service
-@RequiredArgsConstructor
+@Transactional
 public class CategoriaTicketServiceImpl implements CategoriaTicketService {
 
-    private final CategoriaTicketRepository categoriaRepository;
+    private final CategoriaTicketRepository categoriaTicketRepository;
     private final EmpresaRepository empresaRepository;
-    private final CategoriaTicketMapper categoriaMapper;
+
+    public CategoriaTicketServiceImpl(CategoriaTicketRepository categoriaTicketRepository, EmpresaRepository empresaRepository) {
+        this.categoriaTicketRepository = categoriaTicketRepository;
+        this.empresaRepository = empresaRepository;
+    }
+
+    private CategoriaResponseDTO mapToDTO(CategoriaTicket categoria) {
+        CategoriaResponseDTO dto = new CategoriaResponseDTO();
+        dto.setId(categoria.getId());
+        dto.setNombre(categoria.getNombre());
+        dto.setDescripcion(categoria.getDescripcion());
+        dto.setActiva(categoria.isActiva());
+        return dto;
+    }
 
     @Override
     @Transactional(readOnly = true)
     public List<CategoriaResponseDTO> listarCategoriasActivas(Long empresaId) {
-        return categoriaRepository.findAllByEmpresaIdAndActivaTrue(empresaId).stream()
-                .map(categoriaMapper::toResponseDTO)
+        return categoriaTicketRepository.findActivasPorEmpresaOrdenadas(empresaId).stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CategoriaResponseDTO obtenerPorId(Long id, Long empresaId) {
+        CategoriaTicket categoria = categoriaTicketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Categoría de ticket no encontrada con id: " + id));
+        if (!categoria.getEmpresa().getId().equals(empresaId)) {
+            throw new ResourceNotFoundException("Categoría no pertenece a la empresa indicada");
+        }
+        return mapToDTO(categoria);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CategoriaResponseDTO> listarTodas(Long empresaId) {
-        return categoriaRepository.findAllByEmpresaId(empresaId).stream()
-                .map(categoriaMapper::toResponseDTO)
+        return categoriaTicketRepository.findByEmpresaId(empresaId).stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional
     public CategoriaResponseDTO crearCategoria(CategoriaRequestDTO requestDTO, Long empresaId) {
-        if (categoriaRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), empresaId)) {
-            throw new RuntimeException("Ya existe una categoría con este nombre en la empresa");
+        Empresa empresa = empresaRepository.findById(empresaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada con id: " + empresaId));
+
+        if (categoriaTicketRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), empresaId)) {
+            throw new DuplicateResourceException("Ya existe una categoría con el nombre '" + requestDTO.getNombre() + "' para esta empresa");
         }
-        Empresa empresa = empresaRepository.findById(empresaId).orElseThrow(() -> new RuntimeException("Empresa no encontrada."));
-        CategoriaTicket categoria = categoriaMapper.toEntity(requestDTO);
+
+        CategoriaTicket categoria = new CategoriaTicket();
+        categoria.setNombre(requestDTO.getNombre());
+        categoria.setDescripcion(requestDTO.getDescripcion());
         categoria.setEmpresa(empresa);
         categoria.setActiva(true);
 
-        CategoriaTicket categoriaGuardada = categoriaRepository.save(categoria);
-        return categoriaMapper.toResponseDTO(categoriaGuardada);
+        CategoriaTicket nuevaCategoria = categoriaTicketRepository.save(categoria);
+        return mapToDTO(nuevaCategoria);
     }
 
     @Override
     public CategoriaResponseDTO actualizarCategoria(Long id, CategoriaRequestDTO requestDTO, Long empresaId) {
-        CategoriaTicket categoria = categoriaRepository.findByIdAndEmpresaIdAndActivaTrue(id, empresaId)
-                .orElseThrow(() -> new RuntimeException("Categoria no encontrada o inactiva"));
+        CategoriaTicket categoriaExistente = categoriaTicketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Categoría de ticket no encontrada con id: " + id));
 
-        if (!categoria.getNombre().equalsIgnoreCase(requestDTO.getNombre()) && categoriaRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), empresaId)) {
-            throw new RuntimeException("Ya existe otra categoria con este nombre en la empresa");            
+        if (!categoriaExistente.getEmpresa().getId().equals(empresaId)) {
+            throw new ResourceNotFoundException("Categoría no pertenece a la empresa indicada");
         }
 
-        categoriaMapper.updateEntityFromDTO(requestDTO, categoria);
-        return categoriaMapper.toResponseDTO(categoriaRepository.save(categoria));
+        if (!categoriaExistente.getNombre().equals(requestDTO.getNombre()) 
+            && categoriaTicketRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), empresaId)) {
+            throw new DuplicateResourceException("Ya existe otra categoría con el nombre '" + requestDTO.getNombre() + "' para esta empresa");
+        }
+
+        categoriaExistente.setNombre(requestDTO.getNombre());
+        categoriaExistente.setDescripcion(requestDTO.getDescripcion());
+
+        CategoriaTicket categoriaActualizada = categoriaTicketRepository.save(categoriaExistente);
+        return mapToDTO(categoriaActualizada);
     }
 
     @Override
     public void eliminarCategoria(Long id, Long empresaId) {
-        CategoriaTicket categoria = categoriaRepository.findByIdAndEmpresaIdAndActivaTrue(id, empresaId)
-                .orElseThrow(() -> new RuntimeException("Categoría no encontrada o ya está inactiva"));
-        //Borrado Logico
-        categoria.setActiva(false);
-        categoriaRepository.save(categoria);
+        CategoriaTicket categoriaExistente = categoriaTicketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Categoría de ticket no encontrada con id: " + id));
+
+        if (!categoriaExistente.getEmpresa().getId().equals(empresaId)) {
+            throw new ResourceNotFoundException("Categoría no pertenece a la empresa indicada");
+        }
+
+        categoriaExistente.setActiva(false);
+        categoriaTicketRepository.save(categoriaExistente);
     }
 }

@@ -10,59 +10,54 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.ProblemaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
 import com.helpdesk.helpdesk_backend.service.ProblemaTicketService;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/problemas")
-@RequiredArgsConstructor
-@Tag(name = "Problemas de Tickets", description = "Endpoints para gestionar los problemas especificos por categoria (Maestros)")
 public class ProblemaTicketController {
 
-    private final ProblemaTicketService problemaService;
+    private final ProblemaTicketService problemaTicketService;
 
-    @Operation(summary = "Listar problemas por categoría", description = "Devuelve los problemas activos asociados a una categoría específica.")
+    public ProblemaTicketController(ProblemaTicketService problemaTicketService) {
+        this.problemaTicketService = problemaTicketService;
+    }
+
     @GetMapping("/categoria/{categoriaId}")
-    public ResponseEntity<List<ProblemaResponseDTO>> listarProblemasPorCategoria(
-            @PathVariable Long categoriaId,
-            @RequestHeader("X-Empresa-Id") Long empresaId) {
-        return ResponseEntity.ok(problemaService.listarProblemasPorCategoria(categoriaId, empresaId));
+    public ResponseEntity<List<ProblemaResponseDTO>> listarPorCategoria(@PathVariable Long categoriaId, @RequestParam Long empresaId) {
+        return ResponseEntity.ok(problemaTicketService.listarProblemasPorCategoria(categoriaId, empresaId));
     }
 
-    @Operation(summary = "Crear un nuevo problema")
+    @GetMapping("/empresa/{empresaId}")
+    public ResponseEntity<List<ProblemaResponseDTO>> listarActivosPorEmpresa(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(problemaTicketService.listarActivosPorEmpresa(empresaId));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProblemaResponseDTO> obtenerPorId(@PathVariable Long id, @RequestParam Long empresaId) {
+        return ResponseEntity.ok(problemaTicketService.obtenerPorId(id, empresaId));
+    }
+
     @PostMapping
-    public ResponseEntity<ProblemaResponseDTO> crearProblema(
-            @Valid @RequestBody ProblemaRequestDTO requestDTO,
-            @RequestHeader("X-Empresa-Id") Long empresaId) {
-        ProblemaResponseDTO nuevoProblema = problemaService.crearProblema(requestDTO, empresaId);
-        return new ResponseEntity<>(nuevoProblema, HttpStatus.CREATED);
+    public ResponseEntity<ProblemaResponseDTO> guardar(@Valid @RequestBody ProblemaRequestDTO requestDTO, @RequestParam Long empresaId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(problemaTicketService.crearProblema(requestDTO, empresaId));
     }
 
-    @Operation(summary = "Actualizar un problema existente")
     @PutMapping("/{id}")
-    public ResponseEntity<ProblemaResponseDTO> actualizarProblema(
-            @PathVariable Long id,
-            @Valid @RequestBody ProblemaRequestDTO requestDTO,
-            @RequestHeader("X-Empresa-Id") Long empresaId) {
-        return ResponseEntity.ok(problemaService.actualizarProblema(id, requestDTO, empresaId));
+    public ResponseEntity<ProblemaResponseDTO> actualizar(@PathVariable Long id, @Valid @RequestBody ProblemaRequestDTO requestDTO, @RequestParam Long empresaId) {
+        return ResponseEntity.ok(problemaTicketService.actualizarProblema(id, requestDTO, empresaId));
     }
 
-    @Operation(summary = "Desactivar un problema (Borrado lógico)")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarProblema(
-            @PathVariable Long id,
-            @RequestHeader("X-Empresa-Id") Long empresaId) {
-        problemaService.eliminarProblema(id, empresaId);
+    public ResponseEntity<Void> eliminar(@PathVariable Long id, @RequestParam Long empresaId) {
+        problemaTicketService.eliminarProblema(id, empresaId);
         return ResponseEntity.noContent().build();
     }
 }

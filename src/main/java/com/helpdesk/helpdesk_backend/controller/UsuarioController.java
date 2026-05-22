@@ -10,60 +10,106 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.helpdesk.helpdesk_backend.dto.UsuarioRequestDTO;
-import com.helpdesk.helpdesk_backend.dto.UsuarioResponseDTO;
+import com.helpdesk.helpdesk_backend.model.Usuario;
 import com.helpdesk.helpdesk_backend.service.UsuarioService;
 
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/usuarios")
-@RequiredArgsConstructor
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
 
-    // TODO: Cuando se implemente Spring Security + JWT, el "empresaIdContexto" 
-    // se extraerá automáticamente del token del usuario autenticado, 
-    // eliminando la necesidad de pedirlo por Header.
+    public UsuarioController(UsuarioService usuarioService) {
+        this.usuarioService = usuarioService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Usuario>> listarTodos() {
+        return ResponseEntity.ok(usuarioService.listarTodos());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Usuario> buscarPorId(@PathVariable Long id) {
+        return usuarioService.buscarPorId(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/email/{email}")
+    public ResponseEntity<Usuario> buscarPorEmail(@PathVariable String email) {
+        return usuarioService.buscarPorEmail(email)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/empresa/{empresaId}")
+    public ResponseEntity<List<Usuario>> listarPorEmpresa(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(usuarioService.listarPorEmpresa(empresaId));
+    }
+
+    @GetMapping("/rol/{rolId}")
+    public ResponseEntity<List<Usuario>> listarPorRol(@PathVariable Long rolId) {
+        return ResponseEntity.ok(usuarioService.listarPorRol(rolId));
+    }
+
+    @GetMapping("/estado")
+    public ResponseEntity<List<Usuario>> listarPorEstado(@RequestParam boolean activo) {
+        return ResponseEntity.ok(usuarioService.listarPorEstado(activo));
+    }
+
+    // ── Endpoints nuevos: filtros que faltaban ──
+
+    @GetMapping("/empresa/{empresaId}/activos")
+    public ResponseEntity<List<Usuario>> listarActivosPorEmpresa(
+            @PathVariable Long empresaId,
+            @RequestParam(defaultValue = "true") boolean activo) {
+        return ResponseEntity.ok(usuarioService.listarActivosPorEmpresa(empresaId, activo));
+    }
+
+    @GetMapping("/empresa/{empresaId}/rol/{rolId}")
+    public ResponseEntity<List<Usuario>> listarPorEmpresaYRol(
+            @PathVariable Long empresaId,
+            @PathVariable Long rolId) {
+        return ResponseEntity.ok(usuarioService.listarPorEmpresaYRol(empresaId, rolId));
+    }
+
+    // ── Endpoints con queries JPQL personalizadas ──
+
+    /** Usuarios activos con datos precargados (JOIN FETCH) */
+    @GetMapping("/empresa/{empresaId}/detalle")
+    public ResponseEntity<List<Usuario>> listarActivosConDetalles(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(usuarioService.listarActivosPorEmpresaConDetalles(empresaId));
+    }
+
+    /** Buscar usuarios por nombre o apellido */
+    @GetMapping("/empresa/{empresaId}/buscar")
+    public ResponseEntity<List<Usuario>> buscarPorNombre(
+            @PathVariable Long empresaId,
+            @RequestParam String termino) {
+        return ResponseEntity.ok(usuarioService.buscarPorNombreOApellido(empresaId, termino));
+    }
+
+    // ── CRUD ──
 
     @PostMapping
-    public ResponseEntity<UsuarioResponseDTO> crearUsuario(
-        @Valid @RequestBody UsuarioRequestDTO requestDTO, 
-        @RequestHeader("X-Empresa-Id") Long empresaIdContexto) {
-
-        UsuarioResponseDTO nuevoUsuario = usuarioService.crearUsuario(requestDTO, empresaIdContexto);
-        return new ResponseEntity<>(nuevoUsuario, HttpStatus.CREATED);
-    }
-    
-    @GetMapping("/{id}")
-    public ResponseEntity<UsuarioResponseDTO> obtenerUsuario(@PathVariable Long id, @RequestHeader("X-Empresa-Id") Long empresaIdContexto) {
-        return ResponseEntity.ok(usuarioService.obtenerUsuarioPorId(id, empresaIdContexto));
-    }
-    
-    @GetMapping
-    public ResponseEntity<List<UsuarioResponseDTO>> listarUsuariosPorEmpresa(@RequestHeader("X-Empresa-Id") Long empresaIdContexto){
-        return ResponseEntity.ok(usuarioService.listarUsuariosPorEmpresa(empresaIdContexto));    
-    }
-
-    @GetMapping("/rol/{rolNombre}")
-    public ResponseEntity<List<UsuarioResponseDTO>> listarUsuariosPorRol(@PathVariable String rolNombre, @RequestHeader("X-Empresa-Id") Long empresaIdContexto) {
-        return ResponseEntity.ok(usuarioService.listarUsuariosPorRol(empresaIdContexto, rolNombre));
+    public ResponseEntity<Usuario> guardar(@Valid @RequestBody Usuario usuario) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.guardar(usuario));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UsuarioResponseDTO> actualizarUsuario(@PathVariable Long id, @Valid @RequestBody UsuarioRequestDTO requestDTO, @RequestHeader("X-Empresa-Id") Long empresaIdContexto) {      
-        return ResponseEntity.ok(usuarioService.actualizarUsuario(id, requestDTO, empresaIdContexto));
+    public ResponseEntity<Usuario> actualizar(@PathVariable Long id, @Valid @RequestBody Usuario usuario) {
+        return ResponseEntity.ok(usuarioService.actualizar(id, usuario));
     }
-    
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarUsuario(@PathVariable Long id, @RequestHeader("X-Empresa-Id") Long empresaIdContexto){
-        usuarioService.eliminarUsuario(id, empresaIdContexto);
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        usuarioService.eliminar(id);
         return ResponseEntity.noContent().build();
     }
 }

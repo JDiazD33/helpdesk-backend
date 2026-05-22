@@ -1,113 +1,165 @@
 package com.helpdesk.helpdesk_backend.controller;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.helpdesk.helpdesk_backend.dto.AsignarAgenteRequestDTO;
-import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
-import com.helpdesk.helpdesk_backend.dto.TicketRequestDTO;
-import com.helpdesk.helpdesk_backend.dto.TicketResponseDTO;
+import com.helpdesk.helpdesk_backend.dto.TicketConComentarioRequestDTO;
+import com.helpdesk.helpdesk_backend.model.Ticket;
+import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
+import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
 //Controlador REST para gestionar los endpoints relacionados con los tickets
 @RestController
 @RequestMapping("/api/tickets")
-@RequiredArgsConstructor
-@Tag(name = "TicketController", description = "Operaciones principales de la Mesa de Ayuda")
 public class TicketController {
 
+    // Inyección de dependencias del servicio de tickets
     private final TicketService ticketService;
 
-    @PostMapping
-    @Operation(summary = "Crear un nuevo ticket")
-    public ResponseEntity<TicketResponseDTO> crearTicket(
-            @Valid @RequestBody TicketRequestDTO requestDTO, 
-            @RequestHeader ("X-Empresa-Id") Long empresaId, 
-            @RequestHeader ("x-Usuario-Id") Long clienteId){
-        TicketResponseDTO response = ticketService.crearTicket(requestDTO, clienteId, empresaId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    // Constructor para inyectar el servicio de tickets
+    public TicketController(TicketService ticketService) {
+        this.ticketService = ticketService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Ticket>> listarTodos() {
+        return ResponseEntity.ok(ticketService.listarTodos());
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Obtener un ticket por su ID")
-    public ResponseEntity<TicketResponseDTO> obtenerPorId(
-            @PathVariable Long id, 
-            @RequestHeader ("X-Empresa-Id") Long empresaId){
-        return ResponseEntity.ok(ticketService.obtenerPorId(id, empresaId));
-    } 
-
-    @PatchMapping("/{id}/asignar")
-    @Operation(summary = "Asignar un ticket a un agente")
-    public ResponseEntity<TicketResponseDTO> asignarAgente(
-            @PathVariable Long id,
-            @Valid @RequestBody AsignarAgenteRequestDTO requestDTO,
-            @RequestHeader ("X-Empresa-Id") Long empresaId){
-        return ResponseEntity.ok(ticketService.asignarAgente(id, requestDTO.getAgenteId(), empresaId));
+    public ResponseEntity<Ticket> buscarPorId(@PathVariable Long id) {
+        return ticketService.buscarPorId(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    @PatchMapping("/{id}/estado")
-    @Operation(summary = "Cambiar el estado de un ticket (Requiere justificación para cerrar)")
-    public ResponseEntity<TicketResponseDTO> cambiarEstado(
-            @PathVariable Long id,
-            @Valid @RequestBody CambiarEstadoRequestDTO requestDTO,
-            @RequestHeader("X-Empresa-Id") Long empresaId){
-        return ResponseEntity.ok(ticketService.cambiarEstado(
-            id, 
-            requestDTO.getEstado(), 
-            requestDTO.getJustificacionCierre(), 
-            empresaId
-        ));
+    @GetMapping("/codigo/{codigo}")
+    public ResponseEntity<Ticket> buscarPorCodigo(@PathVariable String codigo) {
+        return ticketService.buscarPorCodigo(codigo)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // --- ENDPOINTS DE LISTADOS (Paginados) ---
-
-    @GetMapping
-    @Operation(summary = "Listar todos los tickets de la empresa (Vista Admin/Supervisor)")
-    public ResponseEntity<Page<TicketResponseDTO>> listarTodos(
-            @RequestHeader("X-Empresa-Id") Long empresaId,
-            @PageableDefault(size = 20) Pageable pageable){
-        return ResponseEntity.ok(ticketService.listarTodosPorEmpresa(empresaId, pageable));
+    @GetMapping("/empresa/{empresaId}")
+    public ResponseEntity<List<Ticket>> listarPorEmpresa(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(ticketService.listarPorEmpresaId(empresaId));
     }
 
     @GetMapping("/cliente/{clienteId}")
-    @Operation(summary = "Listar tickets de un cliente específico (Vista Portal Cliente)")
-    public ResponseEntity<Page<TicketResponseDTO>> listarPorCliente(
-            @PathVariable Long clienteId,
-            @RequestHeader("X-Empresa-Id") Long empresaId,
-            @PageableDefault(size = 20) Pageable pageable){
-        return ResponseEntity.ok(ticketService.listarPorCliente(clienteId, empresaId, pageable));
+    public ResponseEntity<List<Ticket>> listarPorCliente(@PathVariable Long clienteId) {
+        return ResponseEntity.ok(ticketService.listarPorClienteId(clienteId));
     }
 
     @GetMapping("/agente/{agenteId}")
-    @Operation(summary = "Listar tickets asignados a un agente (Vista Bandeja de Entrada)")
-    public ResponseEntity<Page<TicketResponseDTO>> listarPorAgente(
-            @PathVariable Long agenteId,
-            @RequestHeader("X-Empresa-Id") Long empresaId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(ticketService.listarPorAgente(agenteId, empresaId, pageable));
+    public ResponseEntity<List<Ticket>> listarPorAgente(@PathVariable Long agenteId) {
+        return ResponseEntity.ok(ticketService.listarPorAgenteAsignadoId(agenteId));
     }
 
-    @GetMapping("/no-asignados")
-    @Operation(summary = "Listar tickets sin agente asignado (Cola de Dispatch)")
-    public ResponseEntity<Page<TicketResponseDTO>> listarNoAsignados(
-            @RequestHeader("X-Empresa-Id") Long empresaId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(ticketService.listarNoAsignados(empresaId, pageable));
+    // ── Endpoints de filtros ──
+
+    @GetMapping("/estado/{estado}")
+    public ResponseEntity<List<Ticket>> listarPorEstado(@PathVariable EstadoTicket estado) {
+        return ResponseEntity.ok(ticketService.listarPorEstado(estado));
+    }
+
+    @GetMapping("/prioridad/{prioridad}")
+    public ResponseEntity<List<Ticket>> listarPorPrioridad(@PathVariable PrioridadTicket prioridad) {
+        return ResponseEntity.ok(ticketService.listarPorPrioridad(prioridad));
+    }
+
+    @GetMapping("/categoria/{categoriaId}")
+    public ResponseEntity<List<Ticket>> listarPorCategoria(@PathVariable Long categoriaId) {
+        return ResponseEntity.ok(ticketService.listarPorCategoriaId(categoriaId));
+    }
+
+    // ── Endpoints con queries JPQL personalizadas ──
+
+    /** Tickets de una empresa con datos del cliente, ordenados por fecha DESC */
+    @GetMapping("/empresa/{empresaId}/detalle")
+    public ResponseEntity<List<Ticket>> listarPorEmpresaConDetalles(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(ticketService.listarPorEmpresaConDetalles(empresaId));
+    }
+
+    /** Filtro combinado: empresa + estado (opcional) + prioridad (opcional) */
+    @GetMapping("/empresa/{empresaId}/filtrar")
+    public ResponseEntity<List<Ticket>> filtrarTickets(
+            @PathVariable Long empresaId,
+            @RequestParam(required = false) EstadoTicket estado,
+            @RequestParam(required = false) PrioridadTicket prioridad) {
+        return ResponseEntity.ok(ticketService.filtrarTickets(empresaId, estado, prioridad));
+    }
+
+    /** Conteo de tickets por estado para dashboard */
+    @GetMapping("/empresa/{empresaId}/conteo")
+    public ResponseEntity<List<Object[]>> contarPorEstado(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(ticketService.contarPorEstado(empresaId));
+    }
+
+    /** Tickets de un agente filtrados por estado */
+    @GetMapping("/agente/{agenteId}/estado/{estado}")
+    public ResponseEntity<List<Ticket>> listarPorAgenteYEstado(
+            @PathVariable Long agenteId,
+            @PathVariable EstadoTicket estado) {
+        return ResponseEntity.ok(ticketService.listarPorAgenteYEstado(agenteId, estado));
+    }
+
+    @GetMapping("/empresa/{empresaId}/periodo")
+    public ResponseEntity<List<Ticket>> listarPorPeriodo(
+            @PathVariable Long empresaId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin) {
+        LocalDateTime desde = inicio.atStartOfDay();
+        LocalDateTime hasta = fin.atTime(LocalTime.MAX);
+        return ResponseEntity.ok(ticketService.listarPorEmpresaYPeriodo(empresaId, desde, hasta));
+    }
+
+    @GetMapping("/empresa/{empresaId}/prioridad-alta")
+    public ResponseEntity<List<Ticket>> listarPrioridadAlta(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(ticketService.listarPrioridadAltaPorEmpresa(empresaId));
+    }
+
+    // ── CRUD ──
+
+    @PostMapping
+    public ResponseEntity<Ticket> guardar(@Valid @RequestBody Ticket ticket) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ticketService.guardar(ticket));
+    }
+
+    @PostMapping("/completo")
+    public ResponseEntity<Ticket> guardarConComentario(@Valid @RequestBody TicketConComentarioRequestDTO request) {
+        Ticket creado = ticketService.guardarConComentarioInicial(
+                request.getTicket(),
+                request.getMensajeInicial(),
+                request.getUsuarioComentarioId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(creado);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Ticket> actualizar(@PathVariable Long id, @Valid @RequestBody Ticket ticket) {
+        return ResponseEntity.ok(ticketService.actualizar(id, ticket));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        ticketService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

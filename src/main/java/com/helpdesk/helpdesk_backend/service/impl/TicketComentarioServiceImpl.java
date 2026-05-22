@@ -4,9 +4,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.helpdesk.helpdesk_backend.dto.ComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ComentarioResponseDTO;
+import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.mapper.TicketComentarioMapper;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.TicketComentario;
@@ -21,7 +23,8 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class TicketComentarioServiceImpl implements TicketComentarioService{
+@Transactional
+public class TicketComentarioServiceImpl implements TicketComentarioService {
 
     private final TicketComentarioRepository comentarioRepository;
     private final TicketRepository ticketRepository;
@@ -31,20 +34,16 @@ public class TicketComentarioServiceImpl implements TicketComentarioService{
     @Override
     public ComentarioResponseDTO agregarComentario(ComentarioRequestDTO requestDTO, Long usuarioIdContexto,
             Long empresaIdContexto) {
-        // 1. Validar el Ticket y asegurar que pertenece a la empresa del usuario
         Ticket ticket = ticketRepository.findByIdAndEmpresaId(requestDTO.getTicketId(), empresaIdContexto)
-        .orElseThrow(() -> new RuntimeException("Ticket no encontrado o no pertenece a la empresa"));
-        
-        // 2. Regla Operativa: No permitir comentarios en tickets cerrados
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado o no pertenece a la empresa"));
+
         if (ticket.getEstado() == EstadoTicket.CERRADO) {
-            throw new RuntimeException("No se pueden agregar comentarios a un ticket cerrado.");
+            throw new IllegalArgumentException("No se pueden agregar comentarios a un ticket cerrado.");
         }
 
-        // 3. Validar el Usuario que comenta
         Usuario usuario = usuarioRepository.findByIdAndEmpresaId(usuarioIdContexto, empresaIdContexto)
-        .orElseThrow(() -> new RuntimeException("Usuario no encontrado o no pertenece a la empresa"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado o no pertenece a la empresa"));
 
-        // 4. Mapear y guardar
         TicketComentario comentario = comentarioMapper.toEntity(requestDTO);
         comentario.setTicket(ticket);
         comentario.setUsuario(usuario);
@@ -54,16 +53,14 @@ public class TicketComentarioServiceImpl implements TicketComentarioService{
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ComentarioResponseDTO> listarComentariosPorTicket(Long ticketId, Long empresaIdContexto) {
-        // 1. Validar seguridad: El ticket debe existir y pertenecer a la empresa
         ticketRepository.findByIdAndEmpresaId(ticketId, empresaIdContexto)
-        .orElseThrow(() -> new RuntimeException("Ticket no encontrado o no pertenece a la empresa"));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado o no pertenece a la empresa"));
 
-        // 2. Extraer comentarios ordenados
         return comentarioRepository.findAllByTicketIdOrderByFechaEnvioAsc(ticketId)
-        .stream()
-        .map(comentarioMapper::toResponseDTO)
-        .collect(Collectors.toList());
+                .stream()
+                .map(comentarioMapper::toResponseDTO)
+                .collect(Collectors.toList());
     }
-
 }

@@ -32,7 +32,6 @@ public class UsuarioRepositoryTest {
 
     @BeforeEach
     void setUp(){
-        // 1. Persistir Empresas (Contexto principal y una ajena para validar aislamiento)
         empresaContexto = Empresa.builder()
                 .nombre("Empresa Alpha")
                 .ruc("10000000001")
@@ -51,14 +50,12 @@ public class UsuarioRepositoryTest {
                 .build();
         entityManager.persist(otraEmpresa);
 
-        // 2. Persistir Roles
         rolAdmin = Rol.builder().nombre("ADMIN").build();
         entityManager.persist(rolAdmin);
 
         rolUser = Rol.builder().nombre("USER").build();
         entityManager.persist(rolUser);
 
-        // 3. Persistir Usuario de prueba en la Empresa Alpha
         usuarioActivo = Usuario.builder()
                 .nombres("Juan")
                 .apellidos("Pérez")
@@ -75,26 +72,21 @@ public class UsuarioRepositoryTest {
 
     @Test
     void findByIdAndEmpresaId_CuandoUsuarioPerteneceAEmpresa_RetornaUsuario() {
-        // Act
         Optional<Usuario> resultado = usuarioRepository.findByIdAndEmpresaId(usuarioActivo.getId(), empresaContexto.getId());
         
-        // Assert
         assertThat(resultado).isPresent();
         assertThat(resultado.get().getEmail()).isEqualTo("juan.perez@alpha.com");
     }
 
     @Test
     void findByIdAndEmpresaId_CuandoUsuarioNoPerteneceAEmpresa_RetornaVacio() {
-        // Act - Intentamos buscar al usuario de Alpha usando el ID de la Empresa Beta (Simulando un ataque IDOR)
         Optional<Usuario> resultado = usuarioRepository.findByIdAndEmpresaId(usuarioActivo.getId(), otraEmpresa.getId());
 
-        // Assert
         assertThat(resultado).isNotPresent();
     }
 
     @Test
-    void findAllByEmpresaIdAndActivoTrue_RetornaListaDeUsuariosDeLaEmpresa() {
-        // Arrange - Agregamos un usuario inactivo para validar el borrado lógico
+    void findByEmpresaIdAndActivo_RetornaListaDeUsuariosDeLaEmpresa() {
         Usuario usuarioInactivo = Usuario.builder()
                 .nombres("Ana")
                 .apellidos("Gómez")
@@ -102,22 +94,19 @@ public class UsuarioRepositoryTest {
                 .password("hash123")
                 .empresa(empresaContexto)
                 .rol(rolUser)
-                .activo(false) // Inactivo
+                .activo(false) 
                 .build();
         entityManager.persist(usuarioInactivo);
         entityManager.flush();
 
-        // Act
-        List<Usuario> resultado = usuarioRepository.findAllByEmpresaIdAndActivoTrue(empresaContexto.getId());
+        List<Usuario> resultado = usuarioRepository.findByEmpresaIdAndActivo(empresaContexto.getId(), true);
 
-        // Assert
-        assertThat(resultado).hasSize(1); // Solo debe traer a Juan (activo), ignorando a Ana (inactiva)
+        assertThat(resultado).hasSize(1); 
         assertThat(resultado.get(0).getNombres()).isEqualTo("Juan");
     }
 
     @Test
-    void findAllByEmpresaIdAndRolNombreAndActivoTrue_RetornaSoloAgentes() {
-        // Arrange - Agregamos un usuario normal (USER) a la misma empresa
+    void findByEmpresaIdAndRolId_RetornaSoloUsuariosConEseRol() {
         Usuario usuarioNormal = Usuario.builder()
                 .nombres("Carlos")
                 .apellidos("López")
@@ -130,10 +119,8 @@ public class UsuarioRepositoryTest {
         entityManager.persist(usuarioNormal);
         entityManager.flush();
 
-        // Act - Buscamos solo a los que tienen rol ADMIN en la Empresa Alpha
-        List<Usuario> resultado = usuarioRepository.findAllByEmpresaIdAndRolNombreAndActivoTrue(empresaContexto.getId(), "ADMIN");
+        List<Usuario> resultado = usuarioRepository.findByEmpresaIdAndRolId(empresaContexto.getId(), rolAdmin.getId());
 
-        // Assert
         assertThat(resultado).hasSize(1);
         assertThat(resultado.get(0).getRol().getNombre()).isEqualTo("ADMIN");
         assertThat(resultado.get(0).getNombres()).isEqualTo("Juan");
@@ -141,19 +128,9 @@ public class UsuarioRepositoryTest {
 
     @Test
     void existsByEmail_CuandoExiste_RetornaTrue() {
-        // Act
         boolean existe = usuarioRepository.existsByEmail("juan.perez@alpha.com");
 
-        // Assert
         assertThat(existe).isTrue();
     }
 
-    @Test
-    void existsByIdAndEmpresaIdAndActivoTrue_CuandoCumpleCondiciones_RetornaTrue() {
-        // Act
-        boolean existe = usuarioRepository.existsByIdAndEmpresaIdAndActivoTrue(usuarioActivo.getId(), empresaContexto.getId());
-
-        // Assert
-        assertThat(existe).isTrue();
-    }
 }

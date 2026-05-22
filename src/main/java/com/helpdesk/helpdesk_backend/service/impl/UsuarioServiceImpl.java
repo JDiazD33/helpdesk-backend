@@ -1,112 +1,179 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.helpdesk.helpdesk_backend.dto.UsuarioRequestDTO;
-import com.helpdesk.helpdesk_backend.dto.UsuarioResponseDTO;
-import com.helpdesk.helpdesk_backend.mapper.UsuarioMapper;
-import com.helpdesk.helpdesk_backend.model.Empresa;
-import com.helpdesk.helpdesk_backend.model.Rol;
+import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
+import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.Usuario;
-import com.helpdesk.helpdesk_backend.repository.EmpresaRepository;
-import com.helpdesk.helpdesk_backend.repository.RolRepository;
 import com.helpdesk.helpdesk_backend.repository.UsuarioRepository;
 import com.helpdesk.helpdesk_backend.service.UsuarioService;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
+@Transactional
 public class UsuarioServiceImpl implements UsuarioService{
 
     private final UsuarioRepository usuarioRepository;
-    private final UsuarioMapper usuarioMapper;
-    private final RolRepository rolRepository;
-    private final EmpresaRepository empresaRepository;
+    private final PasswordEncoder passwordEncoder;
 
+    public UsuarioServiceImpl(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    /**
+     * Lista todos los usuarios.
+     */
     @Override
-    @Transactional
-    public UsuarioResponseDTO crearUsuario(UsuarioRequestDTO requestDTO, Long empresaIdContexto) {
+    @Transactional(readOnly = true)
+    public List<Usuario> listarTodos() {
+        return usuarioRepository.findAll();
+    }
 
-        if (usuarioRepository.existsByEmail(requestDTO.getEmail())) {
-            throw new RuntimeException("El correo electronico ya esta registrado en el sistema.");
+    /**
+     * Busca un usuario por su ID.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Usuario> buscarPorId(Long id) {
+        return usuarioRepository.findById(id);
+    }
+
+    /**
+     * Guarda un nuevo usuario validando existencia de email.
+     * Encripta la contraseña con BCrypt antes de persistir.
+     */
+    @Override
+    public Usuario guardar(Usuario usuario) {
+        if (usuarioRepository.existsByEmail(usuario.getEmail())) {
+            throw new DuplicateResourceException("Ya existe un usuario con el email: " + usuario.getEmail());
+        }
+        // Encriptar contraseña con BCrypt
+        usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        return usuarioRepository.save(usuario);
+    }
+
+    /**
+     * Actualiza un usuario existente.
+     * Solo encripta la contraseña si se envía una nueva.
+     */
+    @Override
+    public Usuario actualizar(Long id, Usuario usuario) {
+        Usuario usuarioExistente = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
+
+        if (!usuarioExistente.getEmail().equals(usuario.getEmail()) && usuarioRepository.existsByEmail(usuario.getEmail())) {
+            throw new DuplicateResourceException("Ya existe otro usuario con el email: " + usuario.getEmail());
         }
 
-        Usuario usuario = usuarioMapper.toEntity(requestDTO);
-
-        Rol rol = rolRepository.findById(requestDTO.getRolId())
-            .orElseThrow(()->new RuntimeException("El rol especificado no existe."));
-        usuario.setRol(rol);
-
-        Empresa empresa = empresaRepository.findById(empresaIdContexto)
-            .orElseThrow(()->new RuntimeException("Empresa no encontrada"));
-        usuario.setEmpresa(empresa);
-
-        // TODO: Encriptar la contraseña usando BCrypt antes de guardar. 
-        // Como la seguridad (Spring Security + JWT) se implementará más adelante, 
-        // por ahora la guardaremos tal cual viene en el request.
-        usuario.setPassword(requestDTO.getPassword());
-
-        Usuario usuarioGuardado = usuarioRepository.save(usuario);
-        return usuarioMapper.toResponseDTO(usuarioGuardado);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UsuarioResponseDTO obtenerUsuarioPorId(Long id, Long empresaIdContexto) {
-        Usuario usuario = usuarioRepository.findByIdAndEmpresaId(id, empresaIdContexto)
-        .orElseThrow(()->new RuntimeException("Usuario no encontrado o no pertenece a su empresa"));
-        return usuarioMapper.toResponseDTO(usuario);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<UsuarioResponseDTO> listarUsuariosPorEmpresa(Long empresaIdContexto) {
-        return usuarioRepository.findAllByEmpresaIdAndActivoTrue(empresaIdContexto).stream()
-        .map(usuarioMapper::toResponseDTO).collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<UsuarioResponseDTO> listarUsuariosPorRol(Long empresaIdContexto, String rolNombre) {
-        return usuarioRepository.findAllByEmpresaIdAndRolNombreAndActivoTrue(empresaIdContexto, rolNombre).stream()
-        .map(usuarioMapper::toResponseDTO).collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public UsuarioResponseDTO actualizarUsuario(Long id, UsuarioRequestDTO requestDTO, Long empresaIdContexto) {
-        Usuario usuarioExistente = usuarioRepository.findByIdAndEmpresaId(id, empresaIdContexto)
-        .orElseThrow(() -> new RuntimeException("Usuario no encontrado o no pertenece a su empresa"));
-        
-        // Actualizamos los datos basicos
-        usuarioExistente.setNombres(requestDTO.getNombres());
-        usuarioExistente.setApellidos(requestDTO.getApellidos());
-        usuarioExistente.setTelefono(requestDTO.getTelefono());
-
-        // Si el correo cambia, validar que no exista ya en la BD
-        if (!usuarioExistente.getEmail().equals(requestDTO.getEmail()) && usuarioRepository.existsByEmail(requestDTO.getEmail())) {
-            throw new RuntimeException("El nuevo correo ya se encuentra en uso.");
+        usuarioExistente.setNombres(usuario.getNombres());
+        usuarioExistente.setApellidos(usuario.getApellidos());
+        usuarioExistente.setEmail(usuario.getEmail());
+        // Solo encriptar si se envía una contraseña nueva
+        if (usuario.getPassword() != null && !usuario.getPassword().isEmpty()) {
+            usuarioExistente.setPassword(passwordEncoder.encode(usuario.getPassword()));
         }
-        usuarioExistente.setEmail(requestDTO.getEmail());
+        usuarioExistente.setTelefono(usuario.getTelefono());
+        usuarioExistente.setActivo(usuario.isActivo());
+        usuarioExistente.setEmpresa(usuario.getEmpresa());
+        usuarioExistente.setRol(usuario.getRol());
 
-        Usuario usuarioActualizado = usuarioRepository.save(usuarioExistente);
-        return usuarioMapper.toResponseDTO(usuarioActualizado);
+        return usuarioRepository.save(usuarioExistente);
     }
 
+    /**
+     * Borrado lógico: desactiva el usuario sin eliminarlo de la BD.
+     */
     @Override
-    @Transactional
-    public void eliminarUsuario(Long id, Long empresaIdContexto) {
-        //Aseguramos que el usuario a eliminar pertenezca a la empresa que realiza la peticion
-        Usuario usuario = usuarioRepository.findByIdAndEmpresaId(id, empresaIdContexto)
-        .orElseThrow(() -> new RuntimeException("Usuario no encontrado o no pertenece a su empresa"));
-
-        //Inhabilitamos la cuenta mediante borrado logico
+    public void eliminar(Long id) {
+        Usuario usuario = usuarioRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
         usuario.setActivo(false);
-        usuarioRepository.save(usuario);   
+        usuarioRepository.save(usuario);
+    }
+
+    /**
+     * Busca un usuario usando su email de manera opcional.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Usuario> buscarPorEmail(String email) {
+        return usuarioRepository.findByEmail(email);
+    }
+
+    /**
+     * Verifica la existencia de un email.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existeEmail(String email) {
+        return usuarioRepository.existsByEmail(email);
+    }
+
+    /**
+     * Lista los usuarios que pertenecen a una empresa.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarPorEmpresa(Long empresaId) {
+        return usuarioRepository.findByEmpresaId(empresaId);
+    }
+
+    /**
+     * Lista todos los usuarios de un cierto rol.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarPorRol(Long rolId) {
+        return usuarioRepository.findByRolId(rolId);
+    }
+
+    /**
+     * Lista los usuarios activos de una empresa especifica.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarActivosPorEmpresa(Long empresaId, boolean activo) {
+        return usuarioRepository.findByEmpresaIdAndActivo(empresaId, activo);
+    }
+
+    /**
+     * Lista usuarios de una empresa filtrados por un rol especifico.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarPorEmpresaYRol(Long empresaId, Long rolId) {
+        return usuarioRepository.findByEmpresaIdAndRolId(empresaId, rolId);
+    }
+
+    /**
+     * Lista usuarios por un estado especifico (activos o inactivos).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarPorEstado(boolean activo) {
+        return usuarioRepository.findByActivo(activo);
+    }
+
+    /**
+     * Usuarios activos con datos de rol y empresa precargados (JPQL JOIN FETCH).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarActivosPorEmpresaConDetalles(Long empresaId) {
+        return usuarioRepository.findActivosPorEmpresaConDetalles(empresaId);
+    }
+
+    /**
+     * Busca usuarios por nombre o apellido parcial (JPQL LIKE).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> buscarPorNombreOApellido(Long empresaId, String termino) {
+        return usuarioRepository.buscarPorNombreOApellido(empresaId, termino);
     }
 }

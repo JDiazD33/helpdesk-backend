@@ -2,7 +2,6 @@ package com.helpdesk.helpdesk_backend.service;
 
 import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
-import com.helpdesk.helpdesk_backend.mapper.CategoriaTicketMapper;
 import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
 import com.helpdesk.helpdesk_backend.model.Empresa;
 import com.helpdesk.helpdesk_backend.repository.CategoriaTicketRepository;
@@ -31,9 +30,6 @@ class CategoriaTicketServiceImplTest {
 
     @Mock
     private EmpresaRepository empresaRepository;
-
-    @Mock
-    private CategoriaTicketMapper categoriaMapper;
 
     @InjectMocks
     private CategoriaTicketServiceImpl categoriaService;
@@ -67,27 +63,20 @@ class CategoriaTicketServiceImplTest {
 
     @Test
     void crearCategoria_DebeGuardarExitosamente() {
-        // Arrange
         when(categoriaRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), EMPRESA_ID)).thenReturn(false);
         when(empresaRepository.findById(EMPRESA_ID)).thenReturn(Optional.of(empresa));
-        when(categoriaMapper.toEntity(requestDTO)).thenReturn(categoria);
         when(categoriaRepository.save(any(CategoriaTicket.class))).thenReturn(categoria);
-        when(categoriaMapper.toResponseDTO(categoria)).thenReturn(responseDTO);
 
-        // Act
         CategoriaResponseDTO resultado = categoriaService.crearCategoria(requestDTO, EMPRESA_ID);
 
-        // Assert
         assertThat(resultado.getNombre()).isEqualTo("Hardware");
-        verify(categoriaRepository).save(categoria);
+        verify(categoriaRepository).save(any(CategoriaTicket.class));
     }
 
     @Test
     void crearCategoria_DebeLanzarExcepcionSiNombreDuplicado() {
-        // Arrange
         when(categoriaRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), EMPRESA_ID)).thenReturn(true);
 
-        // Act & Assert
         RuntimeException exception = assertThrows(RuntimeException.class, 
                 () -> categoriaService.crearCategoria(requestDTO, EMPRESA_ID));
         
@@ -97,15 +86,11 @@ class CategoriaTicketServiceImplTest {
 
     @Test
     void eliminarCategoria_DebeAplicarBorradoLogico() {
-        // Arrange
-        when(categoriaRepository.findByIdAndEmpresaIdAndActivaTrue(CATEGORIA_ID, EMPRESA_ID))
-                .thenReturn(Optional.of(categoria));
+        when(categoriaRepository.findById(CATEGORIA_ID)).thenReturn(Optional.of(categoria));
 
-        // Act
         categoriaService.eliminarCategoria(CATEGORIA_ID, EMPRESA_ID);
 
-        // Assert
-        assertThat(categoria.isActiva()).isFalse(); // Verificamos el borrado lógico
+        assertThat(categoria.isActiva()).isFalse(); 
         verify(categoriaRepository).save(categoria);
     }
 }

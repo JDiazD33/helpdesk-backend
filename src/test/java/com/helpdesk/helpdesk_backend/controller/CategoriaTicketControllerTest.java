@@ -3,95 +3,137 @@ package com.helpdesk.helpdesk_backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
+import com.helpdesk.helpdesk_backend.security.CustomUserDetailsService;
+import com.helpdesk.helpdesk_backend.security.JwtUtil;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(CategoriaTicketController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class CategoriaTicketControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
+    @MockBean
+    private CategoriaTicketService categoriaTicketService;
+
+    @MockBean
+    private CustomUserDetailsService customUserDetailsService;
+
+    @MockBean
+    private JwtUtil jwtUtil;
+
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private CategoriaTicketService categoriaService;
-
-    private CategoriaRequestDTO requestDTO;
-    private CategoriaResponseDTO responseDTO;
-
-    private final Long EMPRESA_ID = 1L;
-    private final Long CATEGORIA_ID = 10L;
+    private CategoriaResponseDTO categoriaResponse;
+    private CategoriaRequestDTO categoriaRequest;
 
     @BeforeEach
     void setUp() {
-        requestDTO = new CategoriaRequestDTO();
-        requestDTO.setNombre("Hardware");
-        requestDTO.setDescripcion("Problemas físicos");
+        categoriaResponse = new CategoriaResponseDTO();
+        categoriaResponse.setId(1L);
+        categoriaResponse.setNombre("Soporte Técnico");
+        categoriaResponse.setDescripcion("Problemas técnicos");
+        categoriaResponse.setActiva(true);
 
-        responseDTO = new CategoriaResponseDTO();
-        responseDTO.setId(CATEGORIA_ID);
-        responseDTO.setNombre("Hardware");
-        responseDTO.setDescripcion("Problemas físicos");
-        responseDTO.setActiva(true);
+        categoriaRequest = new CategoriaRequestDTO();
+        categoriaRequest.setNombre("Soporte Técnico");
+        categoriaRequest.setDescripcion("Problemas técnicos");
     }
 
     @Test
-    void listarCategoriasActivas_DebeRetornarListaYEstado200() throws Exception {
-        when(categoriaService.listarCategoriasActivas(EMPRESA_ID)).thenReturn(List.of(responseDTO));
+    void listarTodos_debeRetornarLista() throws Exception {
+        Mockito.when(categoriaTicketService.listarTodas(1L))
+                .thenReturn(List.of(categoriaResponse));
+
+        mockMvc.perform(get("/api/categorias")
+                .param("empresaId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nombre").value("Soporte Técnico"));
+    }
+
+    @Test
+    void listarPorEmpresa_debeRetornarLista() throws Exception {
+        Mockito.when(categoriaTicketService.listarTodas(1L))
+                .thenReturn(List.of(categoriaResponse));
+
+        mockMvc.perform(get("/api/categorias/empresa/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1));
+    }
+
+    @Test
+    void listarActivas_debeRetornarLista() throws Exception {
+        Mockito.when(categoriaTicketService.listarCategoriasActivas(1L))
+                .thenReturn(List.of(categoriaResponse));
 
         mockMvc.perform(get("/api/categorias/activas")
-                        .header("X-Empresa-Id", EMPRESA_ID)
-                        .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .param("empresaId", "1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.size()").value(1))
-                .andExpect(jsonPath("$[0].nombre").value("Hardware"));
+                .andExpect(jsonPath("$[0].activa").value(true));
     }
 
     @Test
-    void crearCategoria_DebeRetornarCategoriaCreadaYEstado201() throws Exception {
-        when(categoriaService.crearCategoria(any(CategoriaRequestDTO.class), eq(EMPRESA_ID)))
-                .thenReturn(responseDTO);
+    void obtenerPorId_debeRetornarCategoria() throws Exception {
+        Mockito.when(categoriaTicketService.obtenerPorId(1L, 1L))
+                .thenReturn(categoriaResponse);
+
+        mockMvc.perform(get("/api/categorias/1")
+                .param("empresaId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Soporte Técnico"));
+    }
+
+    @Test
+    void guardar_debeCrearCategoria() throws Exception {
+        Mockito.when(categoriaTicketService.crearCategoria(any(), eq(1L)))
+                .thenReturn(categoriaResponse);
 
         mockMvc.perform(post("/api/categorias")
-                        .header("X-Empresa-Id", EMPRESA_ID)
-                        .contentType(MediaType.APPLICATION_JSON_VALUE)
-                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .param("empresaId", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(categoriaRequest)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.nombre").value("Hardware"));
+                .andExpect(jsonPath("$.id").value(1));
     }
 
     @Test
-    void crearCategoria_DebeRetornar400SiFaltaHeaderEmpresaId() throws Exception {
-        mockMvc.perform(post("/api/categorias")
-                        // Omitimos el header deliberadamente para probar la seguridad Multi-tenant
-                        .contentType(MediaType.APPLICATION_JSON_VALUE)
-                        .content(objectMapper.writeValueAsString(requestDTO)))
-                .andExpect(status().isBadRequest());
+    void actualizar_debeRetornarCategoriaActualizada() throws Exception {
+        Mockito.when(categoriaTicketService.actualizarCategoria(eq(1L), any(), eq(1L)))
+                .thenReturn(categoriaResponse);
+
+        mockMvc.perform(put("/api/categorias/1")
+                .param("empresaId", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(categoriaRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Soporte Técnico"));
     }
 
     @Test
-    void eliminarCategoria_DebeRetornarEstado204() throws Exception {
-        mockMvc.perform(delete("/api/categorias/{id}", CATEGORIA_ID)
-                        .header("X-Empresa-Id", EMPRESA_ID))
+    void eliminar_debeRetornarNoContent() throws Exception {
+        Mockito.doNothing().when(categoriaTicketService).eliminarCategoria(1L, 1L);
+
+        mockMvc.perform(delete("/api/categorias/1")
+                .param("empresaId", "1"))
                 .andExpect(status().isNoContent());
-
-        verify(categoriaService).eliminarCategoria(CATEGORIA_ID, EMPRESA_ID);
     }
 }

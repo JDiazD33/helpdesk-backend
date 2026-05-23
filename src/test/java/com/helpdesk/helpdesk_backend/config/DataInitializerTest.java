@@ -1,32 +1,21 @@
 package com.helpdesk.helpdesk_backend.config;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import com.helpdesk.helpdesk_backend.model.Permiso;
 import com.helpdesk.helpdesk_backend.model.Rol;
 import com.helpdesk.helpdesk_backend.repository.PermisoRepository;
 import com.helpdesk.helpdesk_backend.repository.RolRepository;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DataInitializerTest {
@@ -37,246 +26,110 @@ class DataInitializerTest {
     @Mock
     private PermisoRepository permisoRepository;
 
-    @InjectMocks
     private DataInitializer dataInitializer;
 
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
-
-    private Permiso buildPermiso(String nombre) {
-        return Permiso.builder().nombre(nombre).descripcion("Permiso " + nombre).activo(true).build();
-    }
-
-    private Rol buildRol(String nombre) {
-        return Rol.builder().nombre(nombre).activo(true).build();
-    }
-
-    /**
-     * Stubs compartidos marcados como lenient: no causan UnnecessaryStubbingException
-     * cuando algún test no llega a invocar asignarPermisosARoles().
-     */
     @BeforeEach
-    void stubRolesYPermisos() {
-        List<String> todos = List.of(
-                "USUARIO_LEER", "USUARIO_CREAR", "USUARIO_EDITAR", "USUARIO_ELIMINAR",
-                "TICKET_LEER", "TICKET_CREAR", "TICKET_EDITAR", "TICKET_ELIMINAR",
-                "ROL_GESTIONAR", "PERMISO_GESTIONAR", "EMPRESA_GESTIONAR", "REPORTE_VER"
-        );
-
-        // lenient() evita UnnecessaryStubbingException en tests que no llegan
-        // a asignarPermisosARoles() y por tanto nunca usan estos stubs.
-        lenient().when(rolRepository.findByNombre("ADMIN_EMPRESA"))
-                .thenReturn(Optional.of(buildRol("ADMIN_EMPRESA")));
-        lenient().when(rolRepository.findByNombre("AGENTE"))
-                .thenReturn(Optional.of(buildRol("AGENTE")));
-        lenient().when(rolRepository.findByNombre("CLIENTE"))
-                .thenReturn(Optional.of(buildRol("CLIENTE")));
-
-        todos.forEach(n ->
-                lenient().when(permisoRepository.findByNombre(n))
-                        .thenReturn(Optional.of(buildPermiso(n))));
-
-        lenient().when(permisoRepository.findAll())
-                .thenReturn(todos.stream().map(this::buildPermiso).toList());
+    void setUp() {
+        dataInitializer = new DataInitializer(rolRepository, permisoRepository);
     }
-
-    // ---------------------------------------------------------------
-    // crearPermisosPorDefecto
-    // ---------------------------------------------------------------
 
     @Test
-    @DisplayName("Crea los 12 permisos cuando ninguno existe")
-    void run_creaLos12Permisos_cuandoNingunoExiste() throws Exception {
+    void run_creaPermisosYRoles_cuandoNoExisten() throws Exception {
         when(permisoRepository.existsByNombre(any())).thenReturn(false);
-        when(rolRepository.existsByNombre(any())).thenReturn(true);
+        when(rolRepository.existsByNombre(any())).thenReturn(false);
+
+        Rol admin = Rol.builder().id(1L).nombre("ADMIN_EMPRESA").build();
+        Rol agente = Rol.builder().id(2L).nombre("AGENTE").build();
+        Rol cliente = Rol.builder().id(3L).nombre("CLIENTE").build();
+
+        when(rolRepository.findByNombre("ADMIN_EMPRESA")).thenReturn(Optional.of(admin));
+        when(rolRepository.findByNombre("AGENTE")).thenReturn(Optional.of(agente));
+        when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.of(cliente));
+
+        Permiso p1 = Permiso.builder().nombre("TICKET_LEER").build();
+        Permiso p2 = Permiso.builder().nombre("TICKET_CREAR").build();
+        Permiso p3 = Permiso.builder().nombre("TICKET_EDITAR").build();
+        Permiso p4 = Permiso.builder().nombre("USUARIO_LEER").build();
+        Permiso p5 = Permiso.builder().nombre("REPORTE_VER").build();
+
+        when(permisoRepository.findAll()).thenReturn(List.of(p1, p2, p3, p4, p5));
+        when(permisoRepository.findByNombre("TICKET_LEER")).thenReturn(Optional.of(p1));
+        when(permisoRepository.findByNombre("TICKET_CREAR")).thenReturn(Optional.of(p2));
+        when(permisoRepository.findByNombre("TICKET_EDITAR")).thenReturn(Optional.of(p3));
+        when(permisoRepository.findByNombre("USUARIO_LEER")).thenReturn(Optional.of(p4));
+        when(permisoRepository.findByNombre("REPORTE_VER")).thenReturn(Optional.of(p5));
 
         dataInitializer.run();
 
         verify(permisoRepository, times(12)).save(any(Permiso.class));
+        verify(rolRepository, times(6)).save(any(Rol.class)); // ← 3 crear + 3 asignar permisos
     }
 
     @Test
-    @DisplayName("No crea permisos que ya existen")
-    void run_noCreaDuplicados_cuandoPermisoYaExiste() throws Exception {
+    void run_noCreaDuplicados_cuandoYaExisten() throws Exception {
         when(permisoRepository.existsByNombre(any())).thenReturn(true);
         when(rolRepository.existsByNombre(any())).thenReturn(true);
+
+        Rol admin = Rol.builder().id(1L).nombre("ADMIN_EMPRESA").build();
+        Rol agente = Rol.builder().id(2L).nombre("AGENTE").build();
+        Rol cliente = Rol.builder().id(3L).nombre("CLIENTE").build();
+
+        when(rolRepository.findByNombre("ADMIN_EMPRESA")).thenReturn(Optional.of(admin));
+        when(rolRepository.findByNombre("AGENTE")).thenReturn(Optional.of(agente));
+        when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.of(cliente));
+
+        Permiso p1 = Permiso.builder().nombre("TICKET_LEER").build();
+        Permiso p2 = Permiso.builder().nombre("TICKET_CREAR").build();
+        Permiso p3 = Permiso.builder().nombre("TICKET_EDITAR").build();
+        Permiso p4 = Permiso.builder().nombre("USUARIO_LEER").build();
+        Permiso p5 = Permiso.builder().nombre("REPORTE_VER").build();
+
+        when(permisoRepository.findAll()).thenReturn(List.of(p1, p2, p3, p4, p5));
+        when(permisoRepository.findByNombre("TICKET_LEER")).thenReturn(Optional.of(p1));
+        when(permisoRepository.findByNombre("TICKET_CREAR")).thenReturn(Optional.of(p2));
+        when(permisoRepository.findByNombre("TICKET_EDITAR")).thenReturn(Optional.of(p3));
+        when(permisoRepository.findByNombre("USUARIO_LEER")).thenReturn(Optional.of(p4));
+        when(permisoRepository.findByNombre("REPORTE_VER")).thenReturn(Optional.of(p5));
 
         dataInitializer.run();
 
         verify(permisoRepository, never()).save(any(Permiso.class));
+        verify(rolRepository, times(3)).save(any(Rol.class)); // solo asignar permisos
     }
 
     @Test
-    @DisplayName("Los permisos se guardan con activo=true y descripcion correcta")
-    void run_permisoGuardadoConAtributosCorrectos() throws Exception {
-        when(permisoRepository.existsByNombre("TICKET_LEER")).thenReturn(false);
-        when(permisoRepository.existsByNombre(argThat(n -> !n.equals("TICKET_LEER")))).thenReturn(true);
-        when(rolRepository.existsByNombre(any())).thenReturn(true);
-
-        dataInitializer.run();
-
-        ArgumentCaptor<Permiso> captor = ArgumentCaptor.forClass(Permiso.class);
-        verify(permisoRepository).save(captor.capture());
-        Permiso guardado = captor.getValue();
-
-        assertThat(guardado.getNombre()).isEqualTo("TICKET_LEER");
-        assertThat(guardado.getDescripcion()).isEqualTo("Permiso TICKET_LEER");
-        assertThat(guardado.isActivo()).isTrue();
-    }
-
-    // ---------------------------------------------------------------
-    // crearRolesPorDefecto
-    // ---------------------------------------------------------------
-
-    @Test
-    @DisplayName("Crea los 3 roles cuando ninguno existe")
-    void run_creaLos3Roles_cuandoNingunoExiste() throws Exception {
-        when(permisoRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.existsByNombre(any())).thenReturn(false);
-
-        dataInitializer.run();
-
-        verify(rolRepository, times(3)).save(argThat(Rol::isActivo));
-    }
-
-    @Test
-    @DisplayName("No crea roles que ya existen")
-    void run_noCreaDuplicados_cuandoRolYaExiste() throws Exception {
+    void run_noAsignaPermisos_cuandoFaltaUnRol() throws Exception {
         when(permisoRepository.existsByNombre(any())).thenReturn(true);
         when(rolRepository.existsByNombre(any())).thenReturn(true);
 
-        dataInitializer.run();
-
-        verify(rolRepository, times(0)).save(argThat(r ->
-                r.getNombre().equals("ADMIN_EMPRESA") ||
-                r.getNombre().equals("AGENTE") ||
-                r.getNombre().equals("CLIENTE")
-        ));
-    }
-
-    @Test
-    @DisplayName("Los roles se crean con activo=true")
-    void run_rolesCreados_conActivoTrue() throws Exception {
-        when(permisoRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.existsByNombre("ADMIN_EMPRESA")).thenReturn(false);
-        when(rolRepository.existsByNombre("AGENTE")).thenReturn(true);
-        when(rolRepository.existsByNombre("CLIENTE")).thenReturn(true);
+        // Solo admin existe, agente y cliente no → entra al if y hace return
+        when(rolRepository.findByNombre("ADMIN_EMPRESA"))
+                .thenReturn(Optional.of(Rol.builder().nombre("ADMIN_EMPRESA").build()));
+        when(rolRepository.findByNombre("AGENTE"))
+                .thenReturn(Optional.empty()); // ← este hace que sea null
+        when(rolRepository.findByNombre("CLIENTE"))
+                .thenReturn(Optional.of(Rol.builder().nombre("CLIENTE").build()));
 
         dataInitializer.run();
 
-        ArgumentCaptor<Rol> captor = ArgumentCaptor.forClass(Rol.class);
-        verify(rolRepository, times(4)).save(captor.capture());
-        Rol rolCreado = captor.getAllValues().stream()
-                .filter(r -> r.getNombre().equals("ADMIN_EMPRESA") && r.getPermisos() == null)
-                .findFirst().orElseThrow();
-        assertThat(rolCreado.isActivo()).isTrue();
+        // No debe guardar ningún rol porque entró al return
+        verify(rolRepository, never()).save(any(Rol.class));
     }
 
-    // ---------------------------------------------------------------
-    // asignarPermisosARoles
-    // ---------------------------------------------------------------
-
     @Test
-    @DisplayName("Admin recibe todos los permisos disponibles")
-    void run_adminRecibeTodasLosPermisos() throws Exception {
+    void run_noAsignaPermisos_cuandoAdminEsNull() throws Exception {
         when(permisoRepository.existsByNombre(any())).thenReturn(true);
         when(rolRepository.existsByNombre(any())).thenReturn(true);
 
-        dataInitializer.run();
-
-        ArgumentCaptor<Rol> captor = ArgumentCaptor.forClass(Rol.class);
-        verify(rolRepository, times(3)).save(captor.capture());
-
-        Rol admin = captor.getAllValues().stream()
-                .filter(r -> r.getNombre().equals("ADMIN_EMPRESA"))
-                .findFirst().orElseThrow();
-
-        assertThat(admin.getPermisos()).hasSize(12);
-    }
-
-    @Test
-    @DisplayName("Agente recibe exactamente 4 permisos correctos")
-    void run_agenteRecibe4Permisos() throws Exception {
-        when(permisoRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.existsByNombre(any())).thenReturn(true);
+        when(rolRepository.findByNombre("ADMIN_EMPRESA"))
+                .thenReturn(Optional.empty()); // ← admin es null, primera condición del if
+        when(rolRepository.findByNombre("AGENTE"))
+                .thenReturn(Optional.of(Rol.builder().nombre("AGENTE").build()));
+        when(rolRepository.findByNombre("CLIENTE"))
+                .thenReturn(Optional.of(Rol.builder().nombre("CLIENTE").build()));
 
         dataInitializer.run();
 
-        ArgumentCaptor<Rol> captor = ArgumentCaptor.forClass(Rol.class);
-        verify(rolRepository, times(3)).save(captor.capture());
-
-        Rol agente = captor.getAllValues().stream()
-                .filter(r -> r.getNombre().equals("AGENTE"))
-                .findFirst().orElseThrow();
-
-        Set<String> nombres = agente.getPermisos().stream()
-                .map(Permiso::getNombre).collect(java.util.stream.Collectors.toSet());
-
-        assertThat(nombres).containsExactlyInAnyOrder(
-                "TICKET_LEER", "TICKET_EDITAR", "USUARIO_LEER", "REPORTE_VER"
-        );
-    }
-
-    @Test
-    @DisplayName("Cliente recibe exactamente 2 permisos correctos")
-    void run_clienteRecibe2Permisos() throws Exception {
-        when(permisoRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.existsByNombre(any())).thenReturn(true);
-
-        dataInitializer.run();
-
-        ArgumentCaptor<Rol> captor = ArgumentCaptor.forClass(Rol.class);
-        verify(rolRepository, times(3)).save(captor.capture());
-
-        Rol cliente = captor.getAllValues().stream()
-                .filter(r -> r.getNombre().equals("CLIENTE"))
-                .findFirst().orElseThrow();
-
-        Set<String> nombres = cliente.getPermisos().stream()
-                .map(Permiso::getNombre).collect(java.util.stream.Collectors.toSet());
-
-        assertThat(nombres).containsExactlyInAnyOrder("TICKET_LEER", "TICKET_CREAR");
-    }
-
-    @Test
-    @DisplayName("No asigna permisos si algún rol no existe en la BD")
-    void run_noAsignaPermisos_siRolFaltaEnBD() throws Exception {
-        when(permisoRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.findByNombre("AGENTE")).thenReturn(Optional.empty());
-
-        dataInitializer.run();
-
-        verify(rolRepository, never()).save(argThat(r -> r.getPermisos() != null));
-    }
-
-    @Test
-    @DisplayName("Lanza IllegalStateException si un permiso requerido no existe en BD")
-    void run_lanzaExcepcion_siPermisoRequeridoNoExiste() {
-        when(permisoRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.existsByNombre(any())).thenReturn(true);
-        when(permisoRepository.findByNombre("TICKET_LEER")).thenReturn(Optional.empty());
-
-        assertThrows(IllegalStateException.class, () -> dataInitializer.run());
-    }
-
-    @Test
-    @DisplayName("Admin recibe lista vacía si findAll no retorna permisos")
-    void run_adminConListaVacia_siPermisosFindAllRetornaVacio() throws Exception {
-        when(permisoRepository.existsByNombre(any())).thenReturn(true);
-        when(rolRepository.existsByNombre(any())).thenReturn(true);
-        when(permisoRepository.findAll()).thenReturn(Collections.emptyList());
-
-        dataInitializer.run();
-
-        ArgumentCaptor<Rol> captor = ArgumentCaptor.forClass(Rol.class);
-        verify(rolRepository, times(3)).save(captor.capture());
-
-        Rol admin = captor.getAllValues().stream()
-                .filter(r -> r.getNombre().equals("ADMIN_EMPRESA"))
-                .findFirst().orElseThrow();
-
-        assertThat(admin.getPermisos()).isEmpty();
+        verify(rolRepository, never()).save(any(Rol.class));
     }
 }

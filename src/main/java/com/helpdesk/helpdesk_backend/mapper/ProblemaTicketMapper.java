@@ -3,12 +3,13 @@ package com.helpdesk.helpdesk_backend.mapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.ReportingPolicy;
 
 import com.helpdesk.helpdesk_backend.dto.ProblemaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
 import com.helpdesk.helpdesk_backend.model.ProblemaTicket;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface ProblemaTicketMapper {
 
     @Mapping(target = "id", ignore = true)

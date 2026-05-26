@@ -3,6 +3,7 @@ package com.helpdesk.helpdesk_backend.mapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
+import org.mapstruct.ReportingPolicy;
 
 import com.helpdesk.helpdesk_backend.dto.EmpresaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
@@ -12,7 +13,7 @@ import com.helpdesk.helpdesk_backend.model.Empresa;
  * Mapper para la conversión entre Empresa (Entity) y sus DTOs.
  * componentModel = MappingConstants.ComponentModel.SPRING permite inyectar el mapper en el Service.
  */
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface EmpresaMapper {
     // --- DE ENTIDAD A DTO DE SALIDA (RESPONSE) ---
     // Mapeo directo de todos los atributos de la entidad al DTO de respuesta

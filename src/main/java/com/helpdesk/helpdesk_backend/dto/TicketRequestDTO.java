@@ -11,7 +11,7 @@ import lombok.Data;
 public class TicketRequestDTO {
 
     @NotBlank(message = "El título es obligatorio")
-    @Size(max = 255, message = "El título no puede exceder los 255 caracteres")
+    @Size(max = 150, message = "El título no puede exceder los 255 caracteres")
     private String titulo;
 
     @NotBlank(message = "La descripción es obligatoria")

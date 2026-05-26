@@ -16,7 +16,7 @@ public class TicketResponseDTO {
     private String descripcion;
     private EstadoTicket estado;
     private PrioridadTicket prioridad;
-    private String justifiacionCierre;
+    private String justificacionCierre;
     private String imagenCierre;
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaActualizacion;

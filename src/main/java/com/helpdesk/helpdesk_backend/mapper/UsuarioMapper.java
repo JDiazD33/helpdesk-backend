@@ -3,6 +3,7 @@ package com.helpdesk.helpdesk_backend.mapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
+import org.mapstruct.ReportingPolicy;
 
 import com.helpdesk.helpdesk_backend.dto.UsuarioRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.UsuarioResponseDTO;
@@ -12,7 +13,7 @@ import com.helpdesk.helpdesk_backend.model.Usuario;
  * Mapper para la conversión entre Usuario (Entity) y sus DTOs.
  * componentModel = MappingConstants.ComponentModel.SPRING permite inyectar el mapper con @Autowired o constructores.
  */
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface UsuarioMapper {
 
     // --- DE ENTIDAD A DTO DE SALIDA (RESPONSE) ---

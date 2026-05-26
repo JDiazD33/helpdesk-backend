@@ -2,12 +2,13 @@ package com.helpdesk.helpdesk_backend.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 
 import com.helpdesk.helpdesk_backend.dto.TicketRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.TicketResponseDTO;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface TicketMapper {
 
     @Mapping(source = "problemaId", target = "problema.id")

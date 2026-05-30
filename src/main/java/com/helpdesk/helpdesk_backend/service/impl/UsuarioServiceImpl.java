@@ -7,6 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.helpdesk.helpdesk_backend.dto.UsuarioRolDTO;
 import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.Usuario;
@@ -175,5 +176,17 @@ public class UsuarioServiceImpl implements UsuarioService{
     @Transactional(readOnly = true)
     public List<Usuario> buscarPorNombreOApellido(Long empresaId, String termino) {
         return usuarioRepository.buscarPorNombreOApellido(empresaId, termino);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UsuarioRolDTO> contarUsuariosPorRol() {
+        return usuarioRepository.contarUsuariosPorRol();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarAgentesActivos(Long empresaId) {
+        return usuarioRepository.listarAgentesActivos(empresaId);
     }
 }

@@ -1,6 +1,7 @@
 package com.helpdesk.helpdesk_backend.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,5 +60,15 @@ public class ProblemaTicketController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @RequestParam Long empresaId) {
         problemaTicketService.eliminarProblema(id, empresaId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/conteo-categoria")
+    public ResponseEntity<List<Map<String, Object>>> contarPorCategoria() {
+        return ResponseEntity.ok(problemaTicketService.contarProblemasPorCategoria());
+    }
+
+    @GetMapping("/buscar")
+    public ResponseEntity<List<ProblemaResponseDTO>> buscarPorTexto(@RequestParam String texto) {
+        return ResponseEntity.ok(problemaTicketService.buscarPorTexto(texto));
     }
 }

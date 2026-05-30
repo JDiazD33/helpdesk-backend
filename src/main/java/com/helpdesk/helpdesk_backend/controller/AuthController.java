@@ -81,14 +81,15 @@ public class AuthController {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
-        // Generar token JWT
+        // Generar token JWT (ahora incluye userId)
         String token = jwtUtil.generateToken(
                 usuario.getEmail(),
                 usuario.getRol().getNombre(),
-                usuario.getEmpresa().getId()
+                usuario.getEmpresa().getId(),
+                usuario.getId()
         );
 
-        // Construir respuesta con token + datos básicos
+        // Construir respuesta con token + datos basicos
         AuthResponse response = AuthResponse.builder()
                 .token(token)
                 .expiresIn(jwtUtil.getExpirationSeconds())
@@ -98,6 +99,7 @@ public class AuthController {
                 .rol(usuario.getRol().getNombre())
                 .empresaId(usuario.getEmpresa().getId())
                 .nombreEmpresa(usuario.getEmpresa().getNombre())
+                .usuarioId(usuario.getId())
                 .build();
 
         return ResponseEntity.ok(response);
@@ -137,11 +139,12 @@ public class AuthController {
 
         usuarioRepository.save(nuevoUsuario);
 
-        // Generar token JWT para el usuario recién registrado
+        // Generar token JWT para el usuario recien registrado
         String token = jwtUtil.generateToken(
                 nuevoUsuario.getEmail(),
                 rolCliente.getNombre(),
-                empresa.getId()
+                empresa.getId(),
+                nuevoUsuario.getId()
         );
 
         AuthResponse response = AuthResponse.builder()
@@ -153,6 +156,7 @@ public class AuthController {
                 .rol(rolCliente.getNombre())
                 .empresaId(empresa.getId())
                 .nombreEmpresa(empresa.getNombre())
+                .usuarioId(nuevoUsuario.getId())
                 .build();
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

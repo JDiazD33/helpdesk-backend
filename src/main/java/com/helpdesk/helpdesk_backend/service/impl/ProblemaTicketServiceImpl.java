@@ -1,6 +1,9 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -56,6 +59,27 @@ public class ProblemaTicketServiceImpl implements ProblemaTicketService {
             throw new ResourceNotFoundException("El problema no pertenece a la empresa indicada");
         }
         return mapToDTO(problema);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> contarProblemasPorCategoria() {
+        List<Object[]> filas = problemaTicketRepository.contarProblemasPorCategoria();
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (Object[] fila : filas) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("categoria", fila[0]);
+            item.put("total", fila[1]);
+            resultado.add(item);
+        }
+        return resultado;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProblemaResponseDTO> buscarPorTexto(String texto) {
+        return problemaTicketRepository.buscarPorTexto(texto).stream()
+                .map(this::mapToDTO).collect(Collectors.toList());
     }
 
     @Override

@@ -112,7 +112,7 @@ class AuthControllerTest {
                 Mockito.when(usuarioRepository.findByEmail("juan@test.com"))
                                 .thenReturn(Optional.of(usuario));
 
-                Mockito.when(jwtUtil.generateToken(anyString(), anyString(), anyLong()))
+                Mockito.when(jwtUtil.generateToken(anyString(), anyString(), anyLong(), anyLong()))
                                 .thenReturn("token-prueba");
 
                 Mockito.when(jwtUtil.getExpirationSeconds()).thenReturn(3600L);
@@ -218,7 +218,13 @@ class AuthControllerTest {
                 Mockito.when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
                 Mockito.when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.of(rol));
                 Mockito.when(passwordEncoder.encode("123456")).thenReturn("123-encriptado"); // ← CORREGIDO
-                Mockito.when(jwtUtil.generateToken(anyString(), anyString(), anyLong())).thenReturn("jwt-register");
+                // save() asigna el ID al objeto original (simula comportamiento real de JPA)
+                Mockito.doAnswer(invocation -> {
+                    Usuario u = invocation.getArgument(0);
+                    if (u.getId() == null) u.setId(1L);
+                    return u;
+                }).when(usuarioRepository).save(any(Usuario.class));
+                Mockito.when(jwtUtil.generateToken(anyString(), anyString(), anyLong(), anyLong())).thenReturn("jwt-register");
                 Mockito.when(jwtUtil.getExpirationSeconds()).thenReturn(3600L);
 
                 mockMvc.perform(post("/api/auth/register")

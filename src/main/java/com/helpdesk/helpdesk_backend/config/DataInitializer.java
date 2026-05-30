@@ -49,6 +49,7 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void crearRolesPorDefecto() {
+        crearRolSiNoExiste("ADMIN_OWNER");
         crearRolSiNoExiste("ADMIN_EMPRESA");
         crearRolSiNoExiste("AGENTE");
         crearRolSiNoExiste("CLIENTE");
@@ -61,13 +62,15 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void asignarPermisosARoles() {
+        Rol owner = rolRepository.findByNombre("ADMIN_OWNER").orElse(null);
         Rol admin = rolRepository.findByNombre("ADMIN_EMPRESA").orElse(null);
         Rol agente = rolRepository.findByNombre("AGENTE").orElse(null);
         Rol cliente = rolRepository.findByNombre("CLIENTE").orElse(null);
-        if (admin == null || agente == null || cliente == null) {
+        if (owner == null || admin == null || agente == null || cliente == null) {
             return;
         }
 
+        owner.setPermisos(Set.copyOf(permisoRepository.findAll()));
         admin.setPermisos(Set.copyOf(permisoRepository.findAll()));
         agente.setPermisos(Set.of(
                 permiso("TICKET_LEER"), permiso("TICKET_EDITAR"),
@@ -76,6 +79,7 @@ public class DataInitializer implements CommandLineRunner {
         cliente.setPermisos(Set.of(
                 permiso("TICKET_LEER"), permiso("TICKET_CREAR")
         ));
+        rolRepository.save(owner);
         rolRepository.save(admin);
         rolRepository.save(agente);
         rolRepository.save(cliente);

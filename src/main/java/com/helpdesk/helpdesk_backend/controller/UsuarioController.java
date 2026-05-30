@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.helpdesk.helpdesk_backend.dto.UsuarioRolDTO;
 import com.helpdesk.helpdesk_backend.model.Usuario;
 import com.helpdesk.helpdesk_backend.service.UsuarioService;
 
@@ -93,6 +94,16 @@ public class UsuarioController {
             @PathVariable Long empresaId,
             @RequestParam String termino) {
         return ResponseEntity.ok(usuarioService.buscarPorNombreOApellido(empresaId, termino));
+    }
+
+    @GetMapping("/conteo-rol")
+    public ResponseEntity<List<UsuarioRolDTO>> contarPorRol() {
+        return ResponseEntity.ok(usuarioService.contarUsuariosPorRol());
+    }
+
+    @GetMapping("/empresa/{empresaId}/agentes")
+    public ResponseEntity<List<Usuario>> listarAgentesActivos(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(usuarioService.listarAgentesActivos(empresaId));
     }
 
     // ── CRUD ──

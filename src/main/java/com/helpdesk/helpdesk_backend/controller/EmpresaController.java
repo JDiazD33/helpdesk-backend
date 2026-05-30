@@ -11,10 +11,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.EmpresaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
+import com.helpdesk.helpdesk_backend.dto.EmpresaTicketsDTO;
 import com.helpdesk.helpdesk_backend.service.EmpresaService;
 
 import jakarta.validation.Valid;
@@ -53,5 +55,20 @@ public class EmpresaController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         empresaService.eliminarEmpresa(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/buscar")
+    public ResponseEntity<List<EmpresaResponseDTO>> buscarPorNombre(@RequestParam String texto) {
+        return ResponseEntity.ok(empresaService.buscarPorNombre(texto));
+    }
+
+    @GetMapping("/recientes")
+    public ResponseEntity<List<EmpresaResponseDTO>> listarRecientes(@RequestParam(defaultValue = "30") int dias) {
+        return ResponseEntity.ok(empresaService.listarEmpresasRecientes(dias));
+    }
+
+    @GetMapping("/ranking")
+    public ResponseEntity<List<EmpresaTicketsDTO>> rankingEmpresas() {
+        return ResponseEntity.ok(empresaService.getRankingEmpresas());
     }
 }

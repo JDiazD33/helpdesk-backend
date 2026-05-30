@@ -253,6 +253,31 @@ public class TicketServiceImpl implements TicketService{
         return ticketRepository.findPrioridadAltaPorEmpresa(empresaId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> buscarPorTexto(Long empresaId, String texto) {
+        return ticketRepository.buscarPorTexto(empresaId, texto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> listarSinAsignar(Long empresaId) {
+        return ticketRepository.findSinAsignar(empresaId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> listarPorClienteConDetalles(Long clienteId, Long empresaId) {
+        return ticketRepository.findByClienteConDetalles(clienteId, empresaId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> listarActualizadosRecientemente(Long empresaId, int dias) {
+        LocalDateTime fechaLimite = LocalDateTime.now().minusDays(dias);
+        return ticketRepository.findActualizadosRecientemente(empresaId, fechaLimite);
+    }
+
     /**
      * Método privado para resolver las entidades anidadas que llegan del JSON
      * con solo su ID, obteniendo las referencias reales de la BD.

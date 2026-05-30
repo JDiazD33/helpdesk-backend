@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.model.Permiso;
@@ -59,5 +60,10 @@ public class PermisoController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         permisoService.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/buscar")
+    public ResponseEntity<List<Permiso>> buscarPorTexto(@RequestParam String texto) {
+        return ResponseEntity.ok(permisoService.buscarPorTexto(texto));
     }
 }

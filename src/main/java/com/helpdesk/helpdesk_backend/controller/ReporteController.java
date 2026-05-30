@@ -32,4 +32,11 @@ public class ReporteController {
     public ResponseEntity<Map<String, Object>> usuariosActivos(@RequestParam Long empresaId) {
         return ResponseEntity.ok(reporteService.contarUsuariosActivos(empresaId));
     }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<Map<String, Object>> dashboard(
+            @RequestParam Long empresaId,
+            @RequestParam(defaultValue = "2026") int anio) {
+        return ResponseEntity.ok(reporteService.dashboard(empresaId, anio));
+    }
 }

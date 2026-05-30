@@ -66,7 +66,7 @@ public interface TicketComentarioRepository extends JpaRepository<TicketComentar
 
         /**
          * Contar comentarios realizados por cada usuario.
-         * Útil para métricas o actividad.
+         * Útil para métricas o actividad. rankingUsuariosComentarios 
          */
         @Query("""
                         SELECT c.usuario.nombres, COUNT(c)

@@ -1,6 +1,10 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -60,6 +64,45 @@ public class TicketComentarioServiceImpl implements TicketComentarioService {
 
         return comentarioRepository.findAllByTicketIdOrderByFechaEnvioAsc(ticketId)
                 .stream()
+                .map(comentarioMapper::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ComentarioResponseDTO> listarPorUsuario(Long usuarioId) {
+        return comentarioRepository.listarPorUsuario(usuarioId).stream()
+                .map(comentarioMapper::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ComentarioResponseDTO> buscarPorTexto(String texto) {
+        return comentarioRepository.buscarPorTexto(texto).stream()
+                .map(comentarioMapper::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> rankingUsuariosComentarios() {
+        List<Object[]> filas = comentarioRepository.rankingUsuariosComentarios();
+        List<Map<String, Object>> resultado = new ArrayList<>();
+        for (Object[] fila : filas) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("usuario", fila[0]);
+            item.put("total", fila[1]);
+            resultado.add(item);
+        }
+        return resultado;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ComentarioResponseDTO> comentariosRecientesEmpresa(Long empresaId, int dias) {
+        LocalDateTime fechaLimite = LocalDateTime.now().minusDays(dias);
+        return comentarioRepository.comentariosRecientesEmpresa(empresaId, fechaLimite).stream()
                 .map(comentarioMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }

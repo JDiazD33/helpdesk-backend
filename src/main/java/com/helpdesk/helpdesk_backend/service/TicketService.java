@@ -70,4 +70,14 @@ public interface TicketService {
     List<Ticket> listarPorEmpresaYPeriodo(Long empresaId, LocalDateTime inicio, LocalDateTime fin);
 
     List<Ticket> listarPrioridadAltaPorEmpresa(Long empresaId);
+
+    // ─── 4 NUEVOS MÉTODOS JPQL ───
+
+    List<Ticket> buscarPorTexto(Long empresaId, String texto);
+
+    List<Ticket> listarSinAsignar(Long empresaId);
+
+    List<Ticket> listarPorClienteConDetalles(Long clienteId, Long empresaId);
+
+    List<Ticket> listarActualizadosRecientemente(Long empresaId, int dias);
 }

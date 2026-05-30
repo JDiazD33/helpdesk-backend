@@ -19,11 +19,12 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Configuración central de Spring Security.
- * - Autenticación stateless con JWT (sin sesiones)
- * - BCrypt para encriptar contraseñas
- * - CORS habilitado para el frontend
- * - Endpoints protegidos por roles (ADMIN_EMPRESA, AGENTE, CLIENTE)
+ * Configuracion central de Spring Security.
+ * Roles: ADMIN_OWNER (super admin global), ADMIN_EMPRESA (admin de una empresa),
+ *        AGENTE (soporte), CLIENTE (usuario final).
+ * - ADMIN_OWNER tiene acceso TOTAL a todo, sin restriccion de empresa.
+ * - ADMIN_EMPRESA solo opera dentro de su empresa (validacion en Service).
+ * - AGENTE y CLIENTE mantienen sus permisos actuales.
  */
 @Configuration
 @EnableWebSecurity
@@ -35,26 +36,16 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-    /**
-     * Codificador de contraseñas BCrypt.
-     * Se inyecta en UsuarioServiceImpl para encriptar las contraseñas al guardar.
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * AuthenticationManager necesario para el proceso de login.
-     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
-    /**
-     * Configuración de CORS para permitir peticiones desde el frontend.
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -68,68 +59,63 @@ public class SecurityConfig {
         return source;
     }
 
-    /**
-     * Cadena de filtros de seguridad.
-     * Define qué endpoints son públicos y cuáles requieren autenticación/rol.
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // Habilitar CORS con la configuración definida arriba
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // Deshabilitar CSRF (no necesario con JWT stateless)
             .csrf(csrf -> csrf.disable())
-            // Sin sesiones: cada request se autentica con el token JWT
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            // Reglas de autorización
             .authorizeHttpRequests(auth -> auth
-                // ── Endpoints públicos (sin token) ──
+                // Endpoints publicos
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
 
-                // ── Empresas: solo ADMIN_EMPRESA ──
-                .requestMatchers(HttpMethod.GET, "/api/empresas/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.POST, "/api/empresas/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.PUT, "/api/empresas/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.DELETE, "/api/empresas/**").hasRole("ADMIN_EMPRESA")
+                // ── Endpoints solo ADMIN_OWNER y ADMIN_EMPRESA ──
+                .requestMatchers("/api/empresas/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/problemas/conteo-categoria", "/api/problemas/buscar").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/comentarios/usuario/**", "/api/comentarios/buscar", "/api/comentarios/ranking-usuarios").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/comentarios/empresa/*/recientes").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/usuarios/conteo-rol").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/usuarios/empresa/*/agentes").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/reportes/dashboard").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/tickets/empresa/*/buscar", "/api/tickets/empresa/*/sin-asignar", "/api/tickets/empresa/*/actualizados").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
 
-                // ── Roles y permisos: solo ADMIN_EMPRESA ──
-                .requestMatchers("/api/roles/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers("/api/permisos/**").hasRole("ADMIN_EMPRESA")
+                // Roles y permisos: ADMIN_OWNER y ADMIN_EMPRESA
+                .requestMatchers("/api/roles/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers("/api/permisos/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
 
-                // ── Reportes: ADMIN y AGENTE ──
-                .requestMatchers("/api/reportes/**").hasAnyRole("ADMIN_EMPRESA", "AGENTE")
+                // Reportes: ADMIN_OWNER, ADMIN_EMPRESA y AGENTE
+                .requestMatchers("/api/reportes/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA", "AGENTE")
 
-                // ── Comentarios: usuarios autenticados ──
+                // Comentarios: cualquier autenticado
                 .requestMatchers("/api/comentarios/**").authenticated()
 
-                // ── Usuarios: ADMIN_EMPRESA todo, AGENTE solo lectura ──
-                .requestMatchers(HttpMethod.GET, "/api/usuarios/**").hasAnyRole("ADMIN_EMPRESA", "AGENTE")
-                .requestMatchers(HttpMethod.POST, "/api/usuarios/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.PUT, "/api/usuarios/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.DELETE, "/api/usuarios/**").hasRole("ADMIN_EMPRESA")
+                // Usuarios: ADMIN_OWNER todo, ADMIN_EMPRESA todo, AGENTE solo lectura
+                .requestMatchers(HttpMethod.GET, "/api/usuarios/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA", "AGENTE")
+                .requestMatchers(HttpMethod.POST, "/api/usuarios/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.PUT, "/api/usuarios/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.DELETE, "/api/usuarios/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
 
-                // ── Categorías y Problemas: lectura para todos, escritura ADMIN_EMPRESA ──
+                // Categorias y Problemas
                 .requestMatchers(HttpMethod.GET, "/api/categorias/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/categorias/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.PUT, "/api/categorias/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.DELETE, "/api/categorias/**").hasRole("ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.POST, "/api/categorias/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.PUT, "/api/categorias/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.DELETE, "/api/categorias/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
 
                 .requestMatchers(HttpMethod.GET, "/api/problemas/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/problemas/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.PUT, "/api/problemas/**").hasRole("ADMIN_EMPRESA")
-                .requestMatchers(HttpMethod.DELETE, "/api/problemas/**").hasRole("ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.POST, "/api/problemas/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.PUT, "/api/problemas/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
+                .requestMatchers(HttpMethod.DELETE, "/api/problemas/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA")
 
-                // ── Tickets: CLIENTE solo lectura y creación; edición/eliminación ADMIN y AGENTE ──
+                // Tickets
                 .requestMatchers(HttpMethod.GET, "/api/tickets/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/tickets/**").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/api/tickets/**").hasAnyRole("ADMIN_EMPRESA", "AGENTE")
-                .requestMatchers(HttpMethod.DELETE, "/api/tickets/**").hasAnyRole("ADMIN_EMPRESA", "AGENTE")
+                .requestMatchers(HttpMethod.PUT, "/api/tickets/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA", "AGENTE")
+                .requestMatchers(HttpMethod.DELETE, "/api/tickets/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA", "AGENTE")
 
-                // ── Cualquier otro endpoint requiere autenticación ──
+                // Cualquier otro endpoint autenticado
                 .anyRequest().authenticated()
             )
-            // Agregar el filtro JWT ANTES del filtro de autenticación estándar
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

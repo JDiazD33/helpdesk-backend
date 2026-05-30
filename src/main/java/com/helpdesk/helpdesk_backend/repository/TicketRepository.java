@@ -129,4 +129,47 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                         "AND t.prioridad IN ('ALTA', 'CRITICA') " +
                         "ORDER BY t.fechaCreacion DESC")
         List<Ticket> findPrioridadAltaPorEmpresa(@Param("empresaId") Long empresaId);
+
+        // ─── 4 NUEVAS CONSULTAS JPQL (SOLICITADAS) ───
+
+        /**
+         * Búsqueda de tickets por texto en título o descripción (LIKE).
+         */
+        @Query("SELECT t FROM Ticket t " +
+                        "WHERE t.empresa.id = :empresaId " +
+                        "AND (LOWER(t.titulo) LIKE LOWER(CONCAT('%', :texto, '%')) " +
+                        "OR LOWER(t.descripcion) LIKE LOWER(CONCAT('%', :texto, '%'))) " +
+                        "ORDER BY t.fechaCreacion DESC")
+        List<Ticket> buscarPorTexto(@Param("empresaId") Long empresaId, @Param("texto") String texto);
+
+        /**
+         * Tickets sin agente asignado (sin asignar) de una empresa.
+         */
+        @Query("SELECT t FROM Ticket t " +
+                        "JOIN FETCH t.cliente " +
+                        "WHERE t.empresa.id = :empresaId " +
+                        "AND t.agenteAsignado IS NULL " +
+                        "ORDER BY t.prioridad DESC, t.fechaCreacion ASC")
+        List<Ticket> findSinAsignar(@Param("empresaId") Long empresaId);
+
+        /**
+         * Tickets de un cliente con JOIN FETCH empresa y categoría.
+         */
+        @Query("SELECT t FROM Ticket t " +
+                        "JOIN FETCH t.empresa " +
+                        "JOIN FETCH t.categoria " +
+                        "WHERE t.cliente.id = :clienteId " +
+                        "AND t.empresa.id = :empresaId " +
+                        "ORDER BY t.fechaCreacion DESC")
+        List<Ticket> findByClienteConDetalles(@Param("clienteId") Long clienteId, @Param("empresaId") Long empresaId);
+
+        /**
+         * Tickets actualizados desde una fecha específica.
+         */
+        @Query("SELECT t FROM Ticket t " +
+                        "JOIN FETCH t.cliente " +
+                        "WHERE t.empresa.id = :empresaId " +
+                        "AND t.fechaActualizacion >= :fecha " +
+                        "ORDER BY t.fechaActualizacion DESC")
+        List<Ticket> findActualizadosRecientemente(@Param("empresaId") Long empresaId, @Param("fecha") LocalDateTime fecha);
 }

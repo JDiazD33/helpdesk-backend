@@ -38,10 +38,12 @@ class DataInitializerTest {
         when(permisoRepository.existsByNombre(any())).thenReturn(false);
         when(rolRepository.existsByNombre(any())).thenReturn(false);
 
-        Rol admin = Rol.builder().id(1L).nombre("ADMIN_EMPRESA").build();
-        Rol agente = Rol.builder().id(2L).nombre("AGENTE").build();
-        Rol cliente = Rol.builder().id(3L).nombre("CLIENTE").build();
+        Rol owner = Rol.builder().id(1L).nombre("ADMIN_OWNER").build();
+        Rol admin = Rol.builder().id(2L).nombre("ADMIN_EMPRESA").build();
+        Rol agente = Rol.builder().id(3L).nombre("AGENTE").build();
+        Rol cliente = Rol.builder().id(4L).nombre("CLIENTE").build();
 
+        when(rolRepository.findByNombre("ADMIN_OWNER")).thenReturn(Optional.of(owner));
         when(rolRepository.findByNombre("ADMIN_EMPRESA")).thenReturn(Optional.of(admin));
         when(rolRepository.findByNombre("AGENTE")).thenReturn(Optional.of(agente));
         when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.of(cliente));
@@ -62,7 +64,7 @@ class DataInitializerTest {
         dataInitializer.run();
 
         verify(permisoRepository, times(12)).save(any(Permiso.class));
-        verify(rolRepository, times(6)).save(any(Rol.class)); // ← 3 crear + 3 asignar permisos
+        verify(rolRepository, times(8)).save(any(Rol.class)); // 4 crear + 4 asignar permisos
     }
 
     @Test
@@ -70,10 +72,12 @@ class DataInitializerTest {
         when(permisoRepository.existsByNombre(any())).thenReturn(true);
         when(rolRepository.existsByNombre(any())).thenReturn(true);
 
-        Rol admin = Rol.builder().id(1L).nombre("ADMIN_EMPRESA").build();
-        Rol agente = Rol.builder().id(2L).nombre("AGENTE").build();
-        Rol cliente = Rol.builder().id(3L).nombre("CLIENTE").build();
+        Rol owner = Rol.builder().id(1L).nombre("ADMIN_OWNER").build();
+        Rol admin = Rol.builder().id(2L).nombre("ADMIN_EMPRESA").build();
+        Rol agente = Rol.builder().id(3L).nombre("AGENTE").build();
+        Rol cliente = Rol.builder().id(4L).nombre("CLIENTE").build();
 
+        when(rolRepository.findByNombre("ADMIN_OWNER")).thenReturn(Optional.of(owner));
         when(rolRepository.findByNombre("ADMIN_EMPRESA")).thenReturn(Optional.of(admin));
         when(rolRepository.findByNombre("AGENTE")).thenReturn(Optional.of(agente));
         when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.of(cliente));
@@ -94,7 +98,7 @@ class DataInitializerTest {
         dataInitializer.run();
 
         verify(permisoRepository, never()).save(any(Permiso.class));
-        verify(rolRepository, times(3)).save(any(Rol.class)); // solo asignar permisos
+        verify(rolRepository, times(4)).save(any(Rol.class)); // solo asignar permisos a 4 roles
     }
 
     @Test
@@ -102,27 +106,29 @@ class DataInitializerTest {
         when(permisoRepository.existsByNombre(any())).thenReturn(true);
         when(rolRepository.existsByNombre(any())).thenReturn(true);
 
-        // Solo admin existe, agente y cliente no → entra al if y hace return
+        when(rolRepository.findByNombre("ADMIN_OWNER"))
+                .thenReturn(Optional.of(Rol.builder().nombre("ADMIN_OWNER").build()));
         when(rolRepository.findByNombre("ADMIN_EMPRESA"))
                 .thenReturn(Optional.of(Rol.builder().nombre("ADMIN_EMPRESA").build()));
         when(rolRepository.findByNombre("AGENTE"))
-                .thenReturn(Optional.empty()); // ← este hace que sea null
+                .thenReturn(Optional.empty()); // este hace que sea null
         when(rolRepository.findByNombre("CLIENTE"))
                 .thenReturn(Optional.of(Rol.builder().nombre("CLIENTE").build()));
 
         dataInitializer.run();
 
-        // No debe guardar ningún rol porque entró al return
         verify(rolRepository, never()).save(any(Rol.class));
     }
 
     @Test
-    void run_noAsignaPermisos_cuandoAdminEsNull() throws Exception {
+    void run_noAsignaPermisos_cuandoOwnerEsNull() throws Exception {
         when(permisoRepository.existsByNombre(any())).thenReturn(true);
         when(rolRepository.existsByNombre(any())).thenReturn(true);
 
+        when(rolRepository.findByNombre("ADMIN_OWNER"))
+                .thenReturn(Optional.empty()); // owner es null, primera condicion del if
         when(rolRepository.findByNombre("ADMIN_EMPRESA"))
-                .thenReturn(Optional.empty()); // ← admin es null, primera condición del if
+                .thenReturn(Optional.of(Rol.builder().nombre("ADMIN_EMPRESA").build()));
         when(rolRepository.findByNombre("AGENTE"))
                 .thenReturn(Optional.of(Rol.builder().nombre("AGENTE").build()));
         when(rolRepository.findByNombre("CLIENTE"))

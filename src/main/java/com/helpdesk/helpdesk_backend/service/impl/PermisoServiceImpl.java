@@ -71,4 +71,10 @@ public class PermisoServiceImpl implements PermisoService {
         permiso.setActivo(false);
         permisoRepository.save(permiso);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Permiso> buscarPorTexto(String texto) {
+        return permisoRepository.buscarPorTexto(texto);
+    }
 }

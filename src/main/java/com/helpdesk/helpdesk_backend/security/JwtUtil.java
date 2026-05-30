@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -37,12 +38,13 @@ public class JwtUtil {
     }
 
     /**
-     * Genera un token JWT con el email, rol y empresaId del usuario.
+     * Genera un token JWT con el email, rol, empresaId y userId del usuario.
      */
-    public String generateToken(String email, String rol, Long empresaId) {
+    public String generateToken(String email, String rol, Long empresaId, Long userId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("rol", rol);
         claims.put("empresaId", empresaId);
+        claims.put("userId", userId);
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -65,6 +67,20 @@ public class JwtUtil {
      */
     public String extractRol(String token) {
         return extractAllClaims(token).get("rol", String.class);
+    }
+
+    /**
+     * Extrae el userId del token.
+     */
+    public Long extractUserId(String token) {
+        return extractAllClaims(token).get("userId", Long.class);
+    }
+
+    /**
+     * Extrae el empresaId del token.
+     */
+    public Long extractEmpresaId(String token) {
+        return extractAllClaims(token).get("empresaId", Long.class);
     }
 
     /**
@@ -104,8 +120,12 @@ public class JwtUtil {
      * Valida que el token pertenezca al usuario y no haya expirado.
      */
     public Boolean validateToken(String token, String email) {
-        final String tokenEmail = extractEmail(token);
-        return (tokenEmail.equals(email) && !isTokenExpired(token));
+        try {
+            final String tokenEmail = extractEmail(token);
+            return (tokenEmail.equals(email) && !isTokenExpired(token));
+        } catch (ExpiredJwtException e) {
+            return false;
+        }
     }
 
     public Long getExpirationSeconds() {

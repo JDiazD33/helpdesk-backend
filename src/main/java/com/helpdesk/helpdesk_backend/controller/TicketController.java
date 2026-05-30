@@ -136,6 +136,34 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.listarPrioridadAltaPorEmpresa(empresaId));
     }
 
+    // ── 4 nuevas consultas JPQL ──
+
+    @GetMapping("/empresa/{empresaId}/buscar")
+    public ResponseEntity<List<Ticket>> buscarPorTexto(
+            @PathVariable Long empresaId,
+            @RequestParam String texto) {
+        return ResponseEntity.ok(ticketService.buscarPorTexto(empresaId, texto));
+    }
+
+    @GetMapping("/empresa/{empresaId}/sin-asignar")
+    public ResponseEntity<List<Ticket>> listarSinAsignar(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(ticketService.listarSinAsignar(empresaId));
+    }
+
+    @GetMapping("/cliente/{clienteId}/empresa/{empresaId}/detalle")
+    public ResponseEntity<List<Ticket>> listarPorClienteConDetalles(
+            @PathVariable Long clienteId,
+            @PathVariable Long empresaId) {
+        return ResponseEntity.ok(ticketService.listarPorClienteConDetalles(clienteId, empresaId));
+    }
+
+    @GetMapping("/empresa/{empresaId}/actualizados")
+    public ResponseEntity<List<Ticket>> listarActualizadosRecientemente(
+            @PathVariable Long empresaId,
+            @RequestParam(defaultValue = "7") int dias) {
+        return ResponseEntity.ok(ticketService.listarActualizadosRecientemente(empresaId, dias));
+    }
+
     // ── CRUD ──
 
     @PostMapping

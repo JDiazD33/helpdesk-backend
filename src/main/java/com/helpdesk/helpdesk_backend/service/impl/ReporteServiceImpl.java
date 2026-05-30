@@ -45,4 +45,26 @@ public class ReporteServiceImpl implements ReporteService {
         resultado.put("usuariosActivos", total);
         return resultado;
     }
+
+    @Override
+    public Map<String, Object> dashboard(Long empresaId, int anio) {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("empresaId", empresaId);
+        stats.put("anio", anio);
+
+        List<Object[]> porEstado = ticketRepository.contarPorEstado(empresaId);
+        Map<String, Long> estadoMap = new HashMap<>();
+        for (Object[] fila : porEstado) {
+            estadoMap.put(fila[0].toString(), (Long) fila[1]);
+        }
+        stats.put("ticketsPorEstado", estadoMap);
+
+        stats.put("ticketsPorMes", ticketsPorMes(empresaId, anio));
+
+        long usuariosActivos = usuarioRepository.findByEmpresaIdAndActivo(empresaId, true).size();
+        stats.put("usuariosActivos", usuariosActivos);
+        stats.put("totalUsuarios", (long) usuarioRepository.findByEmpresaId(empresaId).size());
+
+        return stats;
+    }
 }

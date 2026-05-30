@@ -1,6 +1,7 @@
 package com.helpdesk.helpdesk_backend.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.ComentarioRequestDTO;
@@ -45,5 +47,31 @@ public class TicketComentarioController {
             @PathVariable Long ticketId,
             @RequestHeader("X-Empresa-Id") Long empresaId) {
         return ResponseEntity.ok(comentarioService.listarComentariosPorTicket(ticketId, empresaId));
+    }
+
+    @GetMapping("/usuario/{usuarioId}")
+    @Operation(summary = "Listar comentarios de un usuario")
+    public ResponseEntity<List<ComentarioResponseDTO>> listarPorUsuario(@PathVariable Long usuarioId) {
+        return ResponseEntity.ok(comentarioService.listarPorUsuario(usuarioId));
+    }
+
+    @GetMapping("/buscar")
+    @Operation(summary = "Buscar comentarios por texto")
+    public ResponseEntity<List<ComentarioResponseDTO>> buscarPorTexto(@RequestParam String texto) {
+        return ResponseEntity.ok(comentarioService.buscarPorTexto(texto));
+    }
+
+    @GetMapping("/ranking-usuarios")
+    @Operation(summary = "Ranking de usuarios con mas comentarios")
+    public ResponseEntity<List<Map<String, Object>>> rankingUsuarios() {
+        return ResponseEntity.ok(comentarioService.rankingUsuariosComentarios());
+    }
+
+    @GetMapping("/empresa/{empresaId}/recientes")
+    @Operation(summary = "Comentarios recientes de una empresa")
+    public ResponseEntity<List<ComentarioResponseDTO>> comentariosRecientes(
+            @PathVariable Long empresaId,
+            @RequestParam(defaultValue = "7") int dias) {
+        return ResponseEntity.ok(comentarioService.comentariosRecientesEmpresa(empresaId, dias));
     }
 }

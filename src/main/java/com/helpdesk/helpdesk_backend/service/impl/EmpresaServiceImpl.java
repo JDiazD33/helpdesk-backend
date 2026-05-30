@@ -1,13 +1,13 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.helpdesk.helpdesk_backend.dto.EmpresaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
+import com.helpdesk.helpdesk_backend.dto.EmpresaTicketsDTO;
 import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.Empresa;
@@ -67,10 +67,8 @@ public class EmpresaServiceImpl implements EmpresaService {
     @Override
     @Transactional(readOnly = true)
     public List<EmpresaResponseDTO> listarEmpresasActivas() {
-        return empresaRepository.findAll().stream()
-                .filter(Empresa::isActivo)
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        return empresaRepository.listarEmpresasActivas().stream()
+                .map(this::mapToDTO).collect(Collectors.toList());
     }
 
     @Override
@@ -100,5 +98,26 @@ public class EmpresaServiceImpl implements EmpresaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada con id: " + id));
         empresa.setActivo(false);
         empresaRepository.save(empresa);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmpresaResponseDTO> buscarPorNombre(String texto) {
+        return empresaRepository.buscarPorNombre(texto).stream()
+                .map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmpresaResponseDTO> listarEmpresasRecientes(int dias) {
+        LocalDateTime fechaLimite = LocalDateTime.now().minusDays(dias);
+        return empresaRepository.empresasRecientes(fechaLimite).stream()
+                .map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmpresaTicketsDTO> getRankingEmpresas() {
+        return empresaRepository.rankingEmpresas();
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.helpdesk.helpdesk_backend.constants.RolConstants;
 import com.helpdesk.helpdesk_backend.dto.UsuarioRolDTO;
 import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
@@ -27,7 +28,7 @@ public class UsuarioServiceImpl implements UsuarioService{
     }
 
     /**
-     * Lista todos los usuarios.
+     * Lista todos los usuarios (vista global del ADMIN_OWNER, no excluye al owner).
      */
     @Override
     @Transactional(readOnly = true)
@@ -116,16 +117,19 @@ public class UsuarioServiceImpl implements UsuarioService{
     }
 
     /**
-     * Lista los usuarios que pertenecen a una empresa.
+     * Lista los usuarios que pertenecen a una empresa, EXCLUYENDO al ADMIN_OWNER.
+     * El owner del SaaS está asociado artificialmente a una empresa por la
+     * restricción NOT NULL pero NO pertenece lógicamente a ningún tenant.
      */
     @Override
     @Transactional(readOnly = true)
     public List<Usuario> listarPorEmpresa(Long empresaId) {
-        return usuarioRepository.findByEmpresaId(empresaId);
+        return usuarioRepository.findByEmpresaIdExcluyendoOwner(
+                empresaId, RolConstants.ADMIN_OWNER);
     }
 
     /**
-     * Lista todos los usuarios de un cierto rol.
+     * Lista todos los usuarios de un cierto rol (sin filtro de tenant).
      */
     @Override
     @Transactional(readOnly = true)
@@ -134,25 +138,27 @@ public class UsuarioServiceImpl implements UsuarioService{
     }
 
     /**
-     * Lista los usuarios activos de una empresa especifica.
+     * Lista los usuarios activos de una empresa, EXCLUYENDO al ADMIN_OWNER.
      */
     @Override
     @Transactional(readOnly = true)
     public List<Usuario> listarActivosPorEmpresa(Long empresaId, boolean activo) {
-        return usuarioRepository.findByEmpresaIdAndActivo(empresaId, activo);
+        return usuarioRepository.findByEmpresaIdAndActivoExcluyendoOwner(
+                empresaId, activo, RolConstants.ADMIN_OWNER);
     }
 
     /**
-     * Lista usuarios de una empresa filtrados por un rol especifico.
+     * Lista usuarios de una empresa filtrados por rol, EXCLUYENDO al ADMIN_OWNER.
      */
     @Override
     @Transactional(readOnly = true)
     public List<Usuario> listarPorEmpresaYRol(Long empresaId, Long rolId) {
-        return usuarioRepository.findByEmpresaIdAndRolId(empresaId, rolId);
+        return usuarioRepository.findByEmpresaIdAndRolIdExcluyendoOwner(
+                empresaId, rolId, RolConstants.ADMIN_OWNER);
     }
 
     /**
-     * Lista usuarios por un estado especifico (activos o inactivos).
+     * Lista usuarios por estado (activos/inactivos, sin filtro de tenant).
      */
     @Override
     @Transactional(readOnly = true)
@@ -161,32 +167,56 @@ public class UsuarioServiceImpl implements UsuarioService{
     }
 
     /**
-     * Usuarios activos con datos de rol y empresa precargados (JPQL JOIN FETCH).
+     * Usuarios activos con datos de rol y empresa precargados, EXCLUYENDO al ADMIN_OWNER.
      */
     @Override
     @Transactional(readOnly = true)
     public List<Usuario> listarActivosPorEmpresaConDetalles(Long empresaId) {
-        return usuarioRepository.findActivosPorEmpresaConDetalles(empresaId);
+        return usuarioRepository.findActivosPorEmpresaConDetallesExcluyendoOwner(
+                empresaId, RolConstants.ADMIN_OWNER);
     }
 
     /**
-     * Busca usuarios por nombre o apellido parcial (JPQL LIKE).
+     * Busca usuarios por nombre o apellido parcial, EXCLUYENDO al ADMIN_OWNER.
      */
     @Override
     @Transactional(readOnly = true)
     public List<Usuario> buscarPorNombreOApellido(Long empresaId, String termino) {
-        return usuarioRepository.buscarPorNombreOApellido(empresaId, termino);
+        return usuarioRepository.buscarPorNombreOApellidoExcluyendoOwner(
+                empresaId, termino, RolConstants.ADMIN_OWNER);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<UsuarioRolDTO> contarUsuariosPorRol() {
+    public List<UsuarioRolDTO> contarUsuariosPorRol(Long empresaId) {
+        if (empresaId != null) {
+            // Contexto de tenant: excluir al ADMIN_OWNER
+            return usuarioRepository.contarUsuariosPorRolEmpresaExcluyendoOwner(
+                    empresaId, RolConstants.ADMIN_OWNER);
+        }
+        // Vista global del owner: contar todos, incluyendo al owner
         return usuarioRepository.contarUsuariosPorRol();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Usuario> listarAgentesActivos(Long empresaId) {
-        return usuarioRepository.listarAgentesActivos(empresaId);
+        return usuarioRepository.listarAgentesActivosExcluyendoOwner(
+                empresaId, RolConstants.ADMIN_OWNER);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> listarConFiltros(Long empresaId, String search, List<Long> rolIds) {
+        if (search != null && search.trim().isEmpty()) search = null;
+        if (rolIds != null && rolIds.isEmpty()) rolIds = null;
+        if (search == null && rolIds == null) {
+            if (empresaId == null) return listarTodos();
+            // Pasa por listarPorEmpresa que ya excluye al owner
+            return listarPorEmpresa(empresaId);
+        }
+        // Filtro combinado: solo excluye al owner cuando hay empresaId
+        return usuarioRepository.buscarConFiltrosExcluyendoOwner(
+                empresaId, search, rolIds, RolConstants.ADMIN_OWNER);
     }
 }

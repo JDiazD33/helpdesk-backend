@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
+import com.helpdesk.helpdesk_backend.constants.RolConstants;
 import com.helpdesk.helpdesk_backend.model.Empresa;
 import com.helpdesk.helpdesk_backend.model.Rol;
 import com.helpdesk.helpdesk_backend.model.Usuario;
@@ -99,7 +100,8 @@ public class UsuarioRepositoryTest {
         entityManager.persist(usuarioInactivo);
         entityManager.flush();
 
-        List<Usuario> resultado = usuarioRepository.findByEmpresaIdAndActivo(empresaContexto.getId(), true);
+        List<Usuario> resultado = usuarioRepository.findByEmpresaIdAndActivoExcluyendoOwner(
+                empresaContexto.getId(), true, RolConstants.ADMIN_OWNER);
 
         assertThat(resultado).hasSize(1); 
         assertThat(resultado.get(0).getNombres()).isEqualTo("Juan");
@@ -119,7 +121,8 @@ public class UsuarioRepositoryTest {
         entityManager.persist(usuarioNormal);
         entityManager.flush();
 
-        List<Usuario> resultado = usuarioRepository.findByEmpresaIdAndRolId(empresaContexto.getId(), rolAdmin.getId());
+        List<Usuario> resultado = usuarioRepository.findByEmpresaIdAndRolIdExcluyendoOwner(
+                empresaContexto.getId(), rolAdmin.getId(), RolConstants.ADMIN_OWNER);
 
         assertThat(resultado).hasSize(1);
         assertThat(resultado.get(0).getRol().getNombre()).isEqualTo("ADMIN");

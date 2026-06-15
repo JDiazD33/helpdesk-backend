@@ -31,8 +31,11 @@ public class UsuarioController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Usuario>> listarTodos() {
-        return ResponseEntity.ok(usuarioService.listarTodos());
+    public ResponseEntity<List<Usuario>> listarTodos(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) List<Long> roles,
+            @RequestParam(required = false) Long empresaId) {
+        return ResponseEntity.ok(usuarioService.listarConFiltros(empresaId, search, roles));
     }
 
     @GetMapping("/{id}")
@@ -97,8 +100,8 @@ public class UsuarioController {
     }
 
     @GetMapping("/conteo-rol")
-    public ResponseEntity<List<UsuarioRolDTO>> contarPorRol() {
-        return ResponseEntity.ok(usuarioService.contarUsuariosPorRol());
+    public ResponseEntity<List<UsuarioRolDTO>> contarPorRol(@RequestParam(required = false) Long empresaId) {
+        return ResponseEntity.ok(usuarioService.contarUsuariosPorRol(empresaId));
     }
 
     @GetMapping("/empresa/{empresaId}/agentes")

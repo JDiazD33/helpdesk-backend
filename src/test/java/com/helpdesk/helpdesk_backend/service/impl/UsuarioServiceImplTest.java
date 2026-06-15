@@ -56,10 +56,11 @@ class UsuarioServiceImplTest {
     }
 
     @Test
-    void listarTodos_debeRetornarLista() {
-        when(usuarioRepository.findAll()).thenReturn(List.of(usuario));
+    void listarPorEmpresa_debeRetornarLista() {
+        when(usuarioRepository.findByEmpresaIdExcluyendoOwner(eq(1L), anyString()))
+                .thenReturn(List.of(usuario));
 
-        List<Usuario> resultado = usuarioService.listarTodos();
+        List<Usuario> resultado = usuarioService.listarPorEmpresa(1L);
 
         assertEquals(1, resultado.size());
         assertEquals("Juan", resultado.get(0).getNombres());
@@ -263,12 +264,6 @@ class UsuarioServiceImplTest {
         assertFalse(usuarioService.existeEmail("ghost@test.com"));
     }
 
-    @Test
-    void listarPorEmpresa_debeRetornarLista() {
-        when(usuarioRepository.findByEmpresaId(1L)).thenReturn(List.of(usuario));
-
-        assertEquals(1, usuarioService.listarPorEmpresa(1L).size());
-    }
 
     @Test
     void listarPorRol_debeRetornarLista() {
@@ -279,14 +274,16 @@ class UsuarioServiceImplTest {
 
     @Test
     void listarActivosPorEmpresa_debeRetornarLista() {
-        when(usuarioRepository.findByEmpresaIdAndActivo(1L, true)).thenReturn(List.of(usuario));
+        when(usuarioRepository.findByEmpresaIdAndActivoExcluyendoOwner(eq(1L), eq(true), anyString()))
+                .thenReturn(List.of(usuario));
 
         assertEquals(1, usuarioService.listarActivosPorEmpresa(1L, true).size());
     }
 
     @Test
     void listarPorEmpresaYRol_debeRetornarLista() {
-        when(usuarioRepository.findByEmpresaIdAndRolId(1L, 1L)).thenReturn(List.of(usuario));
+        when(usuarioRepository.findByEmpresaIdAndRolIdExcluyendoOwner(eq(1L), eq(1L), anyString()))
+                .thenReturn(List.of(usuario));
 
         assertEquals(1, usuarioService.listarPorEmpresaYRol(1L, 1L).size());
     }
@@ -300,14 +297,16 @@ class UsuarioServiceImplTest {
 
     @Test
     void listarActivosPorEmpresaConDetalles_debeRetornarLista() {
-        when(usuarioRepository.findActivosPorEmpresaConDetalles(1L)).thenReturn(List.of(usuario));
+        when(usuarioRepository.findActivosPorEmpresaConDetallesExcluyendoOwner(eq(1L), anyString()))
+                .thenReturn(List.of(usuario));
 
         assertEquals(1, usuarioService.listarActivosPorEmpresaConDetalles(1L).size());
     }
 
     @Test
     void buscarPorNombreOApellido_debeRetornarLista() {
-        when(usuarioRepository.buscarPorNombreOApellido(1L, "Juan")).thenReturn(List.of(usuario));
+        when(usuarioRepository.buscarPorNombreOApellidoExcluyendoOwner(eq(1L), eq("Juan"), anyString()))
+                .thenReturn(List.of(usuario));
 
         assertEquals(1, usuarioService.buscarPorNombreOApellido(1L, "Juan").size());
     }

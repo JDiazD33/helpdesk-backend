@@ -36,6 +36,14 @@ public interface EmpresaRepository extends JpaRepository<Empresa, Long> {
                         """)
         List<Empresa> buscarPorNombre(@Param("texto") String texto);
 
+        // Buscar empresa por RUC (coincidencia de prefijo, útil para búsqueda incremental)
+        @Query("""
+                        SELECT e FROM Empresa e
+                        WHERE e.ruc LIKE CONCAT(:ruc, '%')
+                        ORDER BY e.nombre ASC
+                        """)
+        List<Empresa> buscarPorRuc(@Param("ruc") String ruc);
+
         // Listar empresas activas ordenadas alfabéticamente
         @Query("""
                         SELECT e FROM Empresa e
@@ -52,14 +60,14 @@ public interface EmpresaRepository extends JpaRepository<Empresa, Long> {
                         """)
         List<Empresa> empresasRecientes(@Param("fecha") LocalDateTime fecha);
 
-        // Ranking de empresas con mayor cantidad de tickets
+        // Ranking de empresas con mayor cantidad de tickets (LEFT JOIN para incluir empresas sin tickets)
         @Query("""
                         SELECT new com.helpdesk.helpdesk_backend.dto.EmpresaTicketsDTO(
                             e.nombre,
                             COUNT(t)
                         )
                         FROM Empresa e
-                        JOIN Ticket t ON t.empresa.id = e.id
+                        LEFT JOIN Ticket t ON t.empresa.id = e.id
                         GROUP BY e.nombre
                         ORDER BY COUNT(t) DESC
                         """)

@@ -124,11 +124,46 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                         "ORDER BY MONTH(t.fechaCreacion)")
         List<Object[]> contarPorMes(@Param("empresaId") Long empresaId, @Param("anio") int anio);
 
+        @Query("SELECT MONTH(t.fechaCreacion), COUNT(t) FROM Ticket t " +
+                        "WHERE t.empresa.id = :empresaId " +
+                        "AND YEAR(t.fechaCreacion) = :anio " +
+                        "AND MONTH(t.fechaCreacion) = :mes " +
+                        "GROUP BY MONTH(t.fechaCreacion)")
+        List<Object[]> contarPorMesYMes(@Param("empresaId") Long empresaId,
+                                        @Param("anio") int anio,
+                                        @Param("mes") int mes);
+
         @Query("SELECT t FROM Ticket t " +
                         "WHERE t.empresa.id = :empresaId " +
-                        "AND t.prioridad IN ('ALTA', 'CRITICA') " +
+                        "AND (t.prioridad = com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket.ALTA " +
+                        "OR t.prioridad = com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket.CRITICA) " +
                         "ORDER BY t.fechaCreacion DESC")
         List<Ticket> findPrioridadAltaPorEmpresa(@Param("empresaId") Long empresaId);
+
+        // ─── Consultas globales (sin filtro de empresa) para ADMIN_OWNER ───
+
+        @Query("SELECT t.estado, COUNT(t) FROM Ticket t " +
+                        "GROUP BY t.estado")
+        List<Object[]> contarPorEstadoGlobal();
+
+        @Query("SELECT MONTH(t.fechaCreacion), COUNT(t) FROM Ticket t " +
+                        "WHERE YEAR(t.fechaCreacion) = :anio " +
+                        "GROUP BY MONTH(t.fechaCreacion) " +
+                        "ORDER BY MONTH(t.fechaCreacion)")
+        List<Object[]> contarPorMesGlobal(@Param("anio") int anio);
+
+        @Query("SELECT MONTH(t.fechaCreacion), COUNT(t) FROM Ticket t " +
+                        "WHERE YEAR(t.fechaCreacion) = :anio " +
+                        "AND MONTH(t.fechaCreacion) = :mes " +
+                        "GROUP BY MONTH(t.fechaCreacion)")
+        List<Object[]> contarPorMesGlobalYMes(@Param("anio") int anio,
+                                              @Param("mes") int mes);
+
+        @Query("SELECT t FROM Ticket t " +
+                        "WHERE (t.prioridad = com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket.ALTA " +
+                        "OR t.prioridad = com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket.CRITICA) " +
+                        "ORDER BY t.fechaCreacion DESC")
+        List<Ticket> findPrioridadAltaGlobal();
 
         // ─── 4 NUEVAS CONSULTAS JPQL (SOLICITADAS) ───
 
@@ -172,4 +207,33 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                         "AND t.fechaActualizacion >= :fecha " +
                         "ORDER BY t.fechaActualizacion DESC")
         List<Ticket> findActualizadosRecientemente(@Param("empresaId") Long empresaId, @Param("fecha") LocalDateTime fecha);
+
+        // ─── Filtros por asignación de agente ───
+
+        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.agenteAsignado IS NOT NULL ORDER BY t.fechaCreacion DESC")
+        List<Ticket> findAllConAgente();
+
+        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.agenteAsignado IS NULL ORDER BY t.fechaCreacion DESC")
+        List<Ticket> findAllSinAgente();
+
+        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.empresa.id = :empresaId AND t.agenteAsignado IS NOT NULL ORDER BY t.fechaCreacion DESC")
+        List<Ticket> findByEmpresaConAgente(@Param("empresaId") Long empresaId);
+
+        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.empresa.id = :empresaId AND t.agenteAsignado IS NULL ORDER BY t.fechaCreacion DESC")
+        List<Ticket> findByEmpresaSinAgente(@Param("empresaId") Long empresaId);
+
+        // ─── Globales (sin filtro de empresa) para ADMIN_OWNER ───
+
+        @Query("SELECT t FROM Ticket t " +
+                        "JOIN FETCH t.cliente " +
+                        "WHERE t.agenteAsignado IS NULL " +
+                        "ORDER BY t.prioridad DESC, t.fechaCreacion ASC")
+        List<Ticket> findSinAsignarGlobal();
+
+        @Query("SELECT t FROM Ticket t " +
+                        "WHERE t.fechaCreacion BETWEEN :inicio AND :fin " +
+                        "ORDER BY t.fechaCreacion DESC")
+        List<Ticket> findByPeriodoGlobal(
+                        @Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin);
 }

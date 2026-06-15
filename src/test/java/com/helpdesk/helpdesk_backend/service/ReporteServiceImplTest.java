@@ -17,6 +17,9 @@ import java.util.Collections;
 import com.helpdesk.helpdesk_backend.model.Usuario;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,7 +43,7 @@ class ReporteServiceImplTest {
         Object[] fila = new Object[]{1, 5L};
         when(ticketRepository.contarPorMes(10L, 2024)).thenReturn(Collections.singletonList(fila));
 
-        List<Map<String, Object>> resultado = reporteService.ticketsPorMes(10L, 2024);
+        List<Map<String, Object>> resultado = reporteService.ticketsPorMes(10L, 2024, null);
 
         assertThat(resultado).hasSize(1);
         assertThat(resultado.get(0).get("mes")).isEqualTo(1);
@@ -49,7 +52,8 @@ class ReporteServiceImplTest {
 
     @Test
     void contarUsuariosActivos_DeberiaContarUsuarios() {
-        when(usuarioRepository.findByEmpresaIdAndActivo(20L, true)).thenReturn(List.of(new Usuario(), new Usuario()));
+        when(usuarioRepository.findByEmpresaIdAndActivoExcluyendoOwner(anyLong(), anyBoolean(), anyString()))
+                .thenReturn(List.of(new Usuario(), new Usuario()));
 
         Map<String, Object> resultado = reporteService.contarUsuariosActivos(20L);
 

@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
+import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CierreRequestDTO;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.TicketComentario;
 import com.helpdesk.helpdesk_backend.model.Usuario;
@@ -51,6 +53,13 @@ public class TicketServiceImpl implements TicketService{
     @Transactional(readOnly = true)
     public List<Ticket> listarTodos() {
         return ticketRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> listarTodos(Boolean asignado) {
+        if (asignado == null) return ticketRepository.findAll();
+        return asignado ? ticketRepository.findAllConAgente() : ticketRepository.findAllSinAgente();
     }
 
     @Override
@@ -169,6 +178,13 @@ public class TicketServiceImpl implements TicketService{
 
     @Override
     @Transactional(readOnly = true)
+    public List<Ticket> listarPorEmpresaId(Long empresaId, Boolean asignado) {
+        if (asignado == null) return ticketRepository.findByEmpresaId(empresaId);
+        return asignado ? ticketRepository.findByEmpresaConAgente(empresaId) : ticketRepository.findByEmpresaSinAgente(empresaId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Ticket> listarPorClienteId(Long clienteId) {
         return ticketRepository.findByClienteId(clienteId);
     }
@@ -255,6 +271,12 @@ public class TicketServiceImpl implements TicketService{
 
     @Override
     @Transactional(readOnly = true)
+    public List<Ticket> listarPrioridadAltaGlobal() {
+        return ticketRepository.findPrioridadAltaGlobal();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Ticket> buscarPorTexto(Long empresaId, String texto) {
         return ticketRepository.buscarPorTexto(empresaId, texto);
     }
@@ -263,6 +285,18 @@ public class TicketServiceImpl implements TicketService{
     @Transactional(readOnly = true)
     public List<Ticket> listarSinAsignar(Long empresaId) {
         return ticketRepository.findSinAsignar(empresaId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> listarSinAsignarGlobal() {
+        return ticketRepository.findSinAsignarGlobal();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> listarPorPeriodoGlobal(LocalDateTime inicio, LocalDateTime fin) {
+        return ticketRepository.findByPeriodoGlobal(inicio, fin);
     }
 
     @Override
@@ -276,6 +310,73 @@ public class TicketServiceImpl implements TicketService{
     public List<Ticket> listarActualizadosRecientemente(Long empresaId, int dias) {
         LocalDateTime fechaLimite = LocalDateTime.now().minusDays(dias);
         return ticketRepository.findActualizadosRecientemente(empresaId, fechaLimite);
+    }
+
+    @Override
+    public Ticket cambiarEstado(Long id, CambiarEstadoRequestDTO request) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+        if (request.getEstado() == EstadoTicket.CERRADO
+                && (request.getJustificacionCierre() == null || request.getJustificacionCierre().isBlank())) {
+            throw new IllegalArgumentException("La justificacion de cierre es obligatoria para estado CERRADO");
+        }
+        EstadoTicket estadoAnterior = ticket.getEstado();
+        ticket.setEstado(request.getEstado());
+        ticket.setJustificacionCierre(request.getJustificacionCierre());
+        Ticket guardado = ticketRepository.save(ticket);
+        if (request.getUsuarioId() != null && estadoAnterior != request.getEstado()) {
+            String texto = "Estado cambiado de " + estadoAnterior.name() + " a " + request.getEstado().name();
+            Usuario usuario = usuarioRepository.getReferenceById(request.getUsuarioId());
+            TicketComentario comentario = TicketComentario.builder()
+                    .mensaje(texto)
+                    .ticket(guardado)
+                    .usuario(usuario)
+                    .esSistema(true)
+                    .build();
+            comentarioRepository.save(comentario);
+        }
+        return guardado;
+    }
+
+    @Override
+    public Ticket asignarAgente(Long id, Long agenteId) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+        Usuario agente = usuarioRepository.findById(agenteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agente no encontrado con id: " + agenteId));
+        ticket.setAgenteAsignado(agente);
+        Ticket guardado = ticketRepository.save(ticket);
+        String texto = "Ticket asignado a " + agente.getNombres() + " " + agente.getApellidos();
+        TicketComentario comentario = TicketComentario.builder()
+                .mensaje(texto)
+                .ticket(guardado)
+                .usuario(agente)
+                .esSistema(true)
+                .build();
+        comentarioRepository.save(comentario);
+        return guardado;
+    }
+
+    @Override
+    public Ticket guardarCierre(Long id, CierreRequestDTO request) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+        ticket.setEstado(EstadoTicket.RESUELTO);
+        ticket.setJustificacionCierre(request.getJustificacionCierre());
+        ticket.setImagenCierre(request.getImagenCierre());
+        Ticket guardado = ticketRepository.save(ticket);
+        if (request.getUsuarioId() != null) {
+            String texto = "Ticket resuelto: " + request.getJustificacionCierre();
+            Usuario usuario = usuarioRepository.getReferenceById(request.getUsuarioId());
+            TicketComentario comentario = TicketComentario.builder()
+                    .mensaje(texto)
+                    .ticket(guardado)
+                    .usuario(usuario)
+                    .esSistema(true)
+                    .build();
+            comentarioRepository.save(comentario);
+        }
+        return guardado;
     }
 
     /**

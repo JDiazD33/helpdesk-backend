@@ -41,6 +41,7 @@ public class Ticket {
     
     /* columnDefinition = "TEXT": Permite descripciones extensas sin el límite de 255 caracteres del VARCHAR estándar. */
     @NotBlank(message = "La descripción del ticket es obligatoria")
+    @Size(min = 10, max = 2000, message = "La descripción debe tener entre 10 y 2000 caracteres")
     @Column(nullable = false, columnDefinition = "TEXT")
     private String descripcion;
 

@@ -63,8 +63,8 @@ public class TicketComentarioController {
 
     @GetMapping("/ranking-usuarios")
     @Operation(summary = "Ranking de usuarios con mas comentarios")
-    public ResponseEntity<List<Map<String, Object>>> rankingUsuarios() {
-        return ResponseEntity.ok(comentarioService.rankingUsuariosComentarios());
+    public ResponseEntity<List<Map<String, Object>>> rankingUsuarios(@RequestParam(required = false) Long empresaId) {
+        return ResponseEntity.ok(comentarioService.rankingUsuariosComentarios(empresaId));
     }
 
     @GetMapping("/empresa/{empresaId}/recientes")

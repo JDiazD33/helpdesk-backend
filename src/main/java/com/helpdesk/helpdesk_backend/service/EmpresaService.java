@@ -12,6 +12,7 @@ public interface EmpresaService {
     EmpresaResponseDTO actualizarEmpresa(Long id, EmpresaRequestDTO requestDTO);
     void eliminarEmpresa(Long id);
     List<EmpresaResponseDTO> buscarPorNombre(String texto);
+    List<EmpresaResponseDTO> buscarPorRuc(String ruc);
     List<EmpresaResponseDTO> listarEmpresasRecientes(int dias);
     List<EmpresaTicketsDTO> getRankingEmpresas();
 }

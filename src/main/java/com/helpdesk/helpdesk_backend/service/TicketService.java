@@ -4,14 +4,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CierreRequestDTO;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
 
 public interface TicketService {
     
-    // Busca todos los tickets, sin filtros
+    // Busca todos los tickets, con filtro opcional por asignación de agente (null=todos, true=con agente, false=sin agente)
     List<Ticket> listarTodos();
+
+    List<Ticket> listarTodos(Boolean asignado);
 
     // Busca ticket por id, usa optional para evitar errores de inexistencia
     Optional<Ticket> buscarPorId(Long id);
@@ -32,8 +36,10 @@ public interface TicketService {
     // Busca ticket por código, usa optional para evitar errores de inexistencia
     Optional<Ticket> buscarPorCodigo(String codigo);
 
-    // Lista tickets por empresa, cliente, agente asignado, categoría, estado o prioridad
+    // Lista tickets por empresa, con filtro opcional por asignación de agente
     List<Ticket> listarPorEmpresaId(Long empresaId);
+
+    List<Ticket> listarPorEmpresaId(Long empresaId, Boolean asignado);
 
     List<Ticket> listarPorClienteId(Long clienteId);
 
@@ -71,13 +77,25 @@ public interface TicketService {
 
     List<Ticket> listarPrioridadAltaPorEmpresa(Long empresaId);
 
+    List<Ticket> listarPrioridadAltaGlobal();
+
     // ─── 4 NUEVOS MÉTODOS JPQL ───
 
     List<Ticket> buscarPorTexto(Long empresaId, String texto);
 
     List<Ticket> listarSinAsignar(Long empresaId);
 
+    List<Ticket> listarSinAsignarGlobal();
+
+    List<Ticket> listarPorPeriodoGlobal(LocalDateTime inicio, LocalDateTime fin);
+
     List<Ticket> listarPorClienteConDetalles(Long clienteId, Long empresaId);
 
     List<Ticket> listarActualizadosRecientemente(Long empresaId, int dias);
+
+    Ticket cambiarEstado(Long id, CambiarEstadoRequestDTO request);
+
+    Ticket asignarAgente(Long id, Long agenteId);
+
+    Ticket guardarCierre(Long id, CierreRequestDTO request);
 }

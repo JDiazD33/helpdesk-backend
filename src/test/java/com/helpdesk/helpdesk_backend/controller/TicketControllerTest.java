@@ -71,10 +71,10 @@ class TicketControllerTest {
     }
 
     @Test
-    void listarTodos_debeRetornarLista() throws Exception {
-        Mockito.when(ticketService.listarTodos()).thenReturn(List.of(ticket));
+    void listarPorEmpresaId_debeRetornarLista() throws Exception {
+        Mockito.when(ticketService.listarPorEmpresaId(1L)).thenReturn(List.of(ticket));
 
-        mockMvc.perform(get("/api/tickets"))
+        mockMvc.perform(get("/api/tickets/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].titulo").value("Falla de red"));
     }

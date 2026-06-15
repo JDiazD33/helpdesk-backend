@@ -3,11 +3,14 @@ package com.helpdesk.helpdesk_backend.service.impl;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
+import com.helpdesk.helpdesk_backend.dto.PageResponse;
 import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
@@ -62,6 +65,40 @@ public class CategoriaTicketServiceImpl implements CategoriaTicketService {
         return categoriaTicketRepository.findByEmpresaId(empresaId).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoriaResponseDTO> listarTodasGlobal() {
+        return categoriaTicketRepository.findAllOrdered().stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<CategoriaResponseDTO> buscarPaginado(Long empresaId, int page, int limit, String search) {
+        if (search != null && search.trim().isEmpty()) search = null;
+        PageRequest pageable = PageRequest.of(page - 1, limit, Sort.by("nombre").ascending());
+        List<CategoriaResponseDTO> data = categoriaTicketRepository
+                .buscarPaginado(empresaId, search, pageable)
+                .stream().map(this::mapToDTO).collect(Collectors.toList());
+        long total = categoriaTicketRepository.countBuscar(empresaId, search);
+        int totalPages = (int) Math.ceil((double) total / limit);
+        return new PageResponse<>(data, total, page, totalPages);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<CategoriaResponseDTO> buscarPaginadoGlobal(int page, int limit, String search) {
+        if (search != null && search.trim().isEmpty()) search = null;
+        PageRequest pageable = PageRequest.of(page - 1, limit, Sort.by("nombre").ascending());
+        List<CategoriaResponseDTO> data = categoriaTicketRepository
+                .buscarPaginadoGlobal(search, pageable)
+                .stream().map(this::mapToDTO).collect(Collectors.toList());
+        long total = categoriaTicketRepository.countBuscarGlobal(search);
+        int totalPages = (int) Math.ceil((double) total / limit);
+        return new PageResponse<>(data, total, page, totalPages);
     }
 
     @Override

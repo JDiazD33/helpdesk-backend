@@ -27,27 +27,47 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
         // Importante para evitar correos duplicados al registrar usuarios.
         boolean existsByEmail(String email);
 
-        // Listar todos los usuarios de una empresa específica.
-        // Útil en un sistema SaaS donde cada empresa tiene sus propios usuarios.
-        List<Usuario> findByEmpresaId(Long empresaId);
+        // Listar usuarios de una empresa, excluyendo al ADMIN_OWNER del SaaS.
+        // El owner tiene empresa_id asignado por la restricción NOT NULL,
+        // pero NO pertenece lógicamente a ningún tenant. Nunca incluirlo.
+        @Query("SELECT u FROM Usuario u " +
+                        "WHERE u.empresa.id = :empresaId " +
+                        "AND u.rol.nombre <> :rolOwner")
+        List<Usuario> findByEmpresaIdExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("rolOwner") String rolOwner);
 
-        // Listar usuarios según el rol.
-        // Sirve, por ejemplo, para obtener solo agentes o solo clientes.
+        // Listar usuarios según el rol (global, sin filtro de tenant).
         List<Usuario> findByRolId(Long rolId);
 
-        // Listar usuarios de una empresa filtrando además si están activos.
-        // Ejemplo: usuarios activos de la empresa 1.
-        List<Usuario> findByEmpresaIdAndActivo(Long empresaId, boolean activo);
+        // Listar usuarios de una empresa filtrando además si están activos,
+        // excluyendo al ADMIN_OWNER.
+        @Query("SELECT u FROM Usuario u " +
+                        "WHERE u.empresa.id = :empresaId " +
+                        "AND u.activo = :activo " +
+                        "AND u.rol.nombre <> :rolOwner")
+        List<Usuario> findByEmpresaIdAndActivoExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("activo") boolean activo,
+                        @Param("rolOwner") String rolOwner);
 
-        // Listar usuarios de una empresa con un rol específico.
-        // Ejemplo: agentes de soporte de una empresa.
-        List<Usuario> findByEmpresaIdAndRolId(Long empresaId, Long rolId);
+        // Listar usuarios de una empresa con un rol específico,
+        // excluyendo al ADMIN_OWNER.
+        @Query("SELECT u FROM Usuario u " +
+                        "WHERE u.empresa.id = :empresaId " +
+                        "AND u.rol.id = :rolId " +
+                        "AND u.rol.nombre <> :rolOwner")
+        List<Usuario> findByEmpresaIdAndRolIdExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("rolId") Long rolId,
+                        @Param("rolOwner") String rolOwner);
 
-        // Listar usuarios según si están activos o inactivos.
-        // Puede usarse en el panel de administración.
+        // Listar usuarios según si están activos o inactivos (global, sin filtro de tenant).
         List<Usuario> findByActivo(boolean activo);
 
-        // Buscar usuario por ID y empresa (validación de seguridad multi-tenant)
+        // Buscar usuario por ID y empresa (validación de seguridad multi-tenant).
+        // Si el usuario resulta ser ADMIN_OWNER se permite (caso login del owner
+        // sin tenant asignado en su sesión); el filtro por tenant sigue aplicando.
         Optional<Usuario> findByIdAndEmpresaId(Long id, Long empresaId);
 
         // ─────────────────────────────────────────────────────
@@ -55,32 +75,37 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
         // ─────────────────────────────────────────────────────
 
         /**
-         * Usuarios activos de una empresa con sus datos de rol y empresa precargados.
-         * JOIN FETCH evita consultas N+1 y optimiza el rendimiento.
-         * Ordenados alfabéticamente por nombre.
+         * Usuarios activos de una empresa con sus datos de rol y empresa precargados,
+         * excluyendo al ADMIN_OWNER. JOIN FETCH evita N+1.
          */
         @Query("SELECT u FROM Usuario u " +
                         "JOIN FETCH u.rol " +
                         "JOIN FETCH u.empresa " +
                         "WHERE u.empresa.id = :empresaId " +
                         "AND u.activo = true " +
+                        "AND u.rol.nombre <> :rolOwner " +
                         "ORDER BY u.nombres ASC")
-        List<Usuario> findActivosPorEmpresaConDetalles(@Param("empresaId") Long empresaId);
+        List<Usuario> findActivosPorEmpresaConDetallesExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("rolOwner") String rolOwner);
 
         /**
-         * Buscar usuarios por nombre o apellido (búsqueda parcial, case-insensitive).
-         * Útil para la funcionalidad de buscar usuarios en el panel admin.
+         * Buscar usuarios por nombre o apellido (búsqueda parcial, case-insensitive)
+         * en el contexto de un tenant, excluyendo al ADMIN_OWNER.
          */
         @Query("SELECT u FROM Usuario u " +
                         "JOIN FETCH u.rol " +
                         "WHERE u.empresa.id = :empresaId " +
+                        "AND u.rol.nombre <> :rolOwner " +
                         "AND (LOWER(u.nombres) LIKE LOWER(CONCAT('%', :termino, '%')) " +
                         "OR LOWER(u.apellidos) LIKE LOWER(CONCAT('%', :termino, '%'))) " +
                         "ORDER BY u.nombres ASC")
-        List<Usuario> buscarPorNombreOApellido(@Param("empresaId") Long empresaId,
-                        @Param("termino") String termino);
+        List<Usuario> buscarPorNombreOApellidoExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("termino") String termino,
+                        @Param("rolOwner") String rolOwner);
 
-        // Contar usuarios por rol
+        // Contar usuarios por rol (global, sin filtro de tenant). Mantener intacto.
         @Query("""
                         SELECT new com.helpdesk.helpdesk_backend.dto.UsuarioRolDTO(
                         u.rol.nombre,
@@ -91,12 +116,55 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
                         """)
         List<UsuarioRolDTO> contarUsuariosPorRol();
 
-        // Agentes activos de una empresa
+        // Contar usuarios por rol dentro de un tenant, excluyendo al ADMIN_OWNER.
+        @Query("""
+                        SELECT new com.helpdesk.helpdesk_backend.dto.UsuarioRolDTO(
+                        u.rol.nombre,
+                        COUNT(u)
+                        )
+                        FROM Usuario u
+                        WHERE u.empresa.id = :empresaId
+                        AND u.rol.nombre <> :rolOwner
+                        GROUP BY u.rol.nombre
+                        """)
+        List<UsuarioRolDTO> contarUsuariosPorRolEmpresaExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("rolOwner") String rolOwner);
+
+        // Agentes activos de una empresa, excluyendo al ADMIN_OWNER
+        // (defensa por si en algún escenario el owner tuviera ese nombre de rol).
         @Query("""
                         SELECT u FROM Usuario u
                         WHERE u.empresa.id = :empresaId
                         AND u.rol.nombre = 'AGENTE'
                         AND u.activo = true
+                        AND u.rol.nombre <> :rolOwner
                         """)
-        List<Usuario> listarAgentesActivos(@Param("empresaId") Long empresaId);
+        List<Usuario> listarAgentesActivosExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("rolOwner") String rolOwner);
+
+        /**
+         * Búsqueda combinada con filtro por texto y roles.
+         * Cuando se proporciona empresaId (contexto de tenant) se excluye al
+         * ADMIN_OWNER para no contaminar las métricas del tenant.
+         * Si empresaId es NULL, es una búsqueda global del owner y NO se excluye.
+         */
+        @Query("""
+                        SELECT u FROM Usuario u
+                        JOIN FETCH u.rol r
+                        JOIN FETCH u.empresa e
+                        WHERE (:empresaId IS NULL OR u.empresa.id = :empresaId)
+                        AND (:empresaId IS NULL OR u.rol.nombre <> :rolOwner)
+                        AND (:search IS NULL OR :search = '' OR
+                            LOWER(u.nombres) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                            LOWER(u.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                            LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))
+                        AND (:rolIds IS NULL OR u.rol.id IN :rolIds)
+                        ORDER BY u.nombres ASC
+                        """)
+        List<Usuario> buscarConFiltrosExcluyendoOwner(@Param("empresaId") Long empresaId,
+                                       @Param("search") String search,
+                                       @Param("rolIds") List<Long> rolIds,
+                                       @Param("rolOwner") String rolOwner);
 }

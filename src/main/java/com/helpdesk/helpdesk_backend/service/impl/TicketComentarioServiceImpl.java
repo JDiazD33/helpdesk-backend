@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.helpdesk.helpdesk_backend.constants.RolConstants;
 import com.helpdesk.helpdesk_backend.dto.ComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ComentarioResponseDTO;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
@@ -86,8 +87,11 @@ public class TicketComentarioServiceImpl implements TicketComentarioService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> rankingUsuariosComentarios() {
-        List<Object[]> filas = comentarioRepository.rankingUsuariosComentarios();
+    public List<Map<String, Object>> rankingUsuariosComentarios(Long empresaId) {
+        // Cuando empresaId != null se excluye al ADMIN_OWNER; cuando es null
+        // (vista global del owner) el helper de la query no aplica el filtro.
+        List<Object[]> filas = comentarioRepository.rankingUsuariosComentariosExcluyendoOwner(
+                empresaId, RolConstants.ADMIN_OWNER);
         List<Map<String, Object>> resultado = new ArrayList<>();
         for (Object[] fila : filas) {
             Map<String, Object> item = new HashMap<>();
@@ -102,7 +106,9 @@ public class TicketComentarioServiceImpl implements TicketComentarioService {
     @Transactional(readOnly = true)
     public List<ComentarioResponseDTO> comentariosRecientesEmpresa(Long empresaId, int dias) {
         LocalDateTime fechaLimite = LocalDateTime.now().minusDays(dias);
-        return comentarioRepository.comentariosRecientesEmpresa(empresaId, fechaLimite).stream()
+        return comentarioRepository
+                .comentariosRecientesEmpresaExcluyendoOwner(empresaId, fechaLimite, RolConstants.ADMIN_OWNER)
+                .stream()
                 .map(comentarioMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }

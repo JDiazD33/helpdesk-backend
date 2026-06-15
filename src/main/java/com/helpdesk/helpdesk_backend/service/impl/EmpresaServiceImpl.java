@@ -109,6 +109,13 @@ public class EmpresaServiceImpl implements EmpresaService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<EmpresaResponseDTO> buscarPorRuc(String ruc) {
+        return empresaRepository.buscarPorRuc(ruc).stream()
+                .map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<EmpresaResponseDTO> listarEmpresasRecientes(int dias) {
         LocalDateTime fechaLimite = LocalDateTime.now().minusDays(dias);
         return empresaRepository.empresasRecientes(fechaLimite).stream()

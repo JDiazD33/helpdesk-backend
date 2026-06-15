@@ -17,5 +17,6 @@ public interface TicketComentarioMapper {
     @Mapping(source = "ticket.id", target = "ticketId")
     @Mapping(source = "usuario.id", target = "usuarioId")
     @Mapping(source = "usuario.nombres", target = "usuarioNombre")
+    @Mapping(target = "esSistema", source = "esSistema")
     ComentarioResponseDTO toResponseDTO(TicketComentario comentario);
 }

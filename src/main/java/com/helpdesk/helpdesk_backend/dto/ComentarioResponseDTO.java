@@ -15,4 +15,5 @@ public class ComentarioResponseDTO {
     private Long usuarioId;
     private String usuarioNombre;
 
+    private boolean esSistema;
 }

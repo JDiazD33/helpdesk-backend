@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.helpdesk.helpdesk_backend.dto.PageResponse;
 import com.helpdesk.helpdesk_backend.dto.ProblemaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
 import com.helpdesk.helpdesk_backend.service.ProblemaTicketService;
@@ -31,13 +32,31 @@ public class ProblemaTicketController {
         this.problemaTicketService = problemaTicketService;
     }
 
+    @GetMapping
+    public ResponseEntity<List<ProblemaResponseDTO>> listarTodos(@RequestParam(required = false) Long categoriaId) {
+        if (categoriaId != null) {
+            return ResponseEntity.ok(problemaTicketService.listarTodosPorCategoria(categoriaId));
+        }
+        return ResponseEntity.ok(problemaTicketService.listarTodosPorCategoria(null));
+    }
+
     @GetMapping("/categoria/{categoriaId}")
-    public ResponseEntity<List<ProblemaResponseDTO>> listarPorCategoria(@PathVariable Long categoriaId, @RequestParam Long empresaId) {
+    public ResponseEntity<List<ProblemaResponseDTO>> listarPorCategoria(@PathVariable Long categoriaId, @RequestParam(required = false) Long empresaId) {
+        if (empresaId == null) {
+            return ResponseEntity.ok(problemaTicketService.listarTodosPorCategoria(categoriaId));
+        }
         return ResponseEntity.ok(problemaTicketService.listarProblemasPorCategoria(categoriaId, empresaId));
     }
 
     @GetMapping("/empresa/{empresaId}")
-    public ResponseEntity<List<ProblemaResponseDTO>> listarActivosPorEmpresa(@PathVariable Long empresaId) {
+    public ResponseEntity<?> listarActivosPorEmpresa(
+            @PathVariable Long empresaId,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "0") int limit,
+            @RequestParam(required = false) Long categoriaId) {
+        if (page > 0 && limit > 0) {
+            return ResponseEntity.ok(problemaTicketService.listarPaginado(empresaId, page, limit, categoriaId));
+        }
         return ResponseEntity.ok(problemaTicketService.listarActivosPorEmpresa(empresaId));
     }
 
@@ -63,8 +82,16 @@ public class ProblemaTicketController {
     }
 
     @GetMapping("/conteo-categoria")
-    public ResponseEntity<List<Map<String, Object>>> contarPorCategoria() {
-        return ResponseEntity.ok(problemaTicketService.contarProblemasPorCategoria());
+    public ResponseEntity<List<Map<String, Object>>> contarPorCategoria(@RequestParam(required = false) Long empresaId) {
+        return ResponseEntity.ok(problemaTicketService.contarProblemasPorCategoria(empresaId));
+    }
+
+    @GetMapping("/todos")
+    public ResponseEntity<PageResponse<ProblemaResponseDTO>> listarTodos(
+            @RequestParam int page,
+            @RequestParam int limit,
+            @RequestParam(required = false) Long categoriaId) {
+        return ResponseEntity.ok(problemaTicketService.listarTodosPaginado(page, limit, categoriaId));
     }
 
     @GetMapping("/buscar")

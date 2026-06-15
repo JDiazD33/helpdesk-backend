@@ -3,6 +3,8 @@ package com.helpdesk.helpdesk_backend.security;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.helpdesk.helpdesk_backend.constants.RolConstants;
+
 public class SecurityUtils {
 
     public static UsuarioPrincipal getCurrentUser() {
@@ -30,10 +32,10 @@ public class SecurityUtils {
     }
 
     public static boolean isAdminOwner() {
-        return "ADMIN_OWNER".equals(getCurrentUserRol());
+        return RolConstants.ADMIN_OWNER.equals(getCurrentUserRol());
     }
 
     public static boolean isAdminEmpresa() {
-        return "ADMIN_EMPRESA".equals(getCurrentUserRol());
+        return RolConstants.ADMIN_EMPRESA.equals(getCurrentUserRol());
     }
 }

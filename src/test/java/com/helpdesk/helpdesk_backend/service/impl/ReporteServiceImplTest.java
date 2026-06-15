@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,7 +37,7 @@ class ReporteServiceImplTest {
         Object[] fila2 = {2, 3L};
         when(ticketRepository.contarPorMes(1L, 2025)).thenReturn(List.of(fila1, fila2));
 
-        List<Map<String, Object>> resultado = reporteService.ticketsPorMes(1L, 2025);
+        List<Map<String, Object>> resultado = reporteService.ticketsPorMes(1L, 2025, null);
 
         assertEquals(2, resultado.size());
         assertEquals(1, resultado.get(0).get("mes"));
@@ -47,7 +50,7 @@ class ReporteServiceImplTest {
     void ticketsPorMes_listaVacia_debeRetornarListaVacia() {
         when(ticketRepository.contarPorMes(1L, 2025)).thenReturn(List.of());
 
-        List<Map<String, Object>> resultado = reporteService.ticketsPorMes(1L, 2025);
+        List<Map<String, Object>> resultado = reporteService.ticketsPorMes(1L, 2025, null);
 
         assertTrue(resultado.isEmpty());
     }
@@ -57,7 +60,7 @@ class ReporteServiceImplTest {
         Usuario u1 = Usuario.builder().id(1L).nombres("Juan").build();
         Usuario u2 = Usuario.builder().id(2L).nombres("Maria").build();
 
-        when(usuarioRepository.findByEmpresaIdAndActivo(1L, true))
+        when(usuarioRepository.findByEmpresaIdAndActivoExcluyendoOwner(anyLong(), anyBoolean(), anyString()))
                 .thenReturn(List.of(u1, u2));
 
         Map<String, Object> resultado = reporteService.contarUsuariosActivos(1L);
@@ -68,7 +71,8 @@ class ReporteServiceImplTest {
 
     @Test
     void contarUsuariosActivos_sinUsuarios_debeRetornarCero() {
-        when(usuarioRepository.findByEmpresaIdAndActivo(1L, true)).thenReturn(List.of());
+        when(usuarioRepository.findByEmpresaIdAndActivoExcluyendoOwner(anyLong(), anyBoolean(), anyString()))
+                .thenReturn(List.of());
 
         Map<String, Object> resultado = reporteService.contarUsuariosActivos(1L);
 

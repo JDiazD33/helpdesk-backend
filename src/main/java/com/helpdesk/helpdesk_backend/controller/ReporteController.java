@@ -24,8 +24,16 @@ public class ReporteController {
     @GetMapping("/tickets-mes")
     public ResponseEntity<List<Map<String, Object>>> ticketsPorMes(
             @RequestParam Long empresaId,
-            @RequestParam int anio) {
-        return ResponseEntity.ok(reporteService.ticketsPorMes(empresaId, anio));
+            @RequestParam int anio,
+            @RequestParam(required = false) Integer mes) {
+        return ResponseEntity.ok(reporteService.ticketsPorMes(empresaId, anio, mes));
+    }
+
+    @GetMapping("/tickets-mes/todas")
+    public ResponseEntity<List<Map<String, Object>>> ticketsPorMesGlobal(
+            @RequestParam int anio,
+            @RequestParam(required = false) Integer mes) {
+        return ResponseEntity.ok(reporteService.ticketsPorMesGlobal(anio, mes));
     }
 
     @GetMapping("/usuarios-activos")
@@ -33,10 +41,21 @@ public class ReporteController {
         return ResponseEntity.ok(reporteService.contarUsuariosActivos(empresaId));
     }
 
+    @GetMapping("/usuarios-activos/todas")
+    public ResponseEntity<Map<String, Object>> usuariosActivosGlobal() {
+        return ResponseEntity.ok(reporteService.contarUsuariosActivosGlobal());
+    }
+
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> dashboard(
             @RequestParam Long empresaId,
             @RequestParam(defaultValue = "2026") int anio) {
         return ResponseEntity.ok(reporteService.dashboard(empresaId, anio));
+    }
+
+    @GetMapping("/dashboard/todas")
+    public ResponseEntity<Map<String, Object>> dashboardGlobal(
+            @RequestParam(defaultValue = "2026") int anio) {
+        return ResponseEntity.ok(reporteService.dashboardGlobal(anio));
     }
 }

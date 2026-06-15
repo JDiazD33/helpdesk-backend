@@ -111,6 +111,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/tickets/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/tickets/**").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/tickets/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA", "AGENTE")
+                .requestMatchers(HttpMethod.PUT, "/api/tickets/*/estado", "/api/tickets/*/asignar").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA", "AGENTE")
                 .requestMatchers(HttpMethod.DELETE, "/api/tickets/**").hasAnyRole("ADMIN_OWNER", "ADMIN_EMPRESA", "AGENTE")
 
                 // Cualquier otro endpoint autenticado

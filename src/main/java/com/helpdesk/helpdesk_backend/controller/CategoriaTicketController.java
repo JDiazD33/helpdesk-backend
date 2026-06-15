@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
+import com.helpdesk.helpdesk_backend.dto.PageResponse;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
 
 import jakarta.validation.Valid;
@@ -38,6 +39,28 @@ public class CategoriaTicketController {
     @GetMapping("/empresa/{empresaId}")
     public ResponseEntity<List<CategoriaResponseDTO>> listarPorEmpresa(@PathVariable Long empresaId) {
         return ResponseEntity.ok(categoriaTicketService.listarTodas(empresaId));
+    }
+
+    @GetMapping("/todas")
+    public ResponseEntity<List<CategoriaResponseDTO>> listarTodasGlobal() {
+        return ResponseEntity.ok(categoriaTicketService.listarTodasGlobal());
+    }
+
+    @GetMapping("/paginado")
+    public ResponseEntity<PageResponse<CategoriaResponseDTO>> listarPaginado(
+            @RequestParam Long empresaId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int limit,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(categoriaTicketService.buscarPaginado(empresaId, page, limit, search));
+    }
+
+    @GetMapping("/paginado/todas")
+    public ResponseEntity<PageResponse<CategoriaResponseDTO>> listarPaginadoGlobal(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int limit,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(categoriaTicketService.buscarPaginadoGlobal(page, limit, search));
     }
 
     @GetMapping("/activas")

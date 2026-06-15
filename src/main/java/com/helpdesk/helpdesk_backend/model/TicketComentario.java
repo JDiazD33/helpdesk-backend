@@ -38,6 +38,10 @@ public class TicketComentario {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String mensaje;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean esSistema = false;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime fechaEnvio;

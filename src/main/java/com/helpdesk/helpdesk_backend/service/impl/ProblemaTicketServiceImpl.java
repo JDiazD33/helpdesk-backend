@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.helpdesk.helpdesk_backend.dto.PageResponse;
 import com.helpdesk.helpdesk_backend.dto.ProblemaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
 import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
@@ -52,6 +55,30 @@ public class ProblemaTicketServiceImpl implements ProblemaTicketService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResponse<ProblemaResponseDTO> listarPaginado(Long empresaId, int page, int limit, Long categoriaId) {
+        PageRequest pageable = PageRequest.of(page - 1, limit, Sort.by("nombre").ascending());
+        List<ProblemaResponseDTO> data = problemaTicketRepository
+                .findActivosPorEmpresaPaged(empresaId, categoriaId, pageable)
+                .stream().map(this::mapToDTO).collect(Collectors.toList());
+        long total = problemaTicketRepository.countActivosPorEmpresa(empresaId, categoriaId);
+        int totalPages = (int) Math.ceil((double) total / limit);
+        return new PageResponse<>(data, total, page, totalPages);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ProblemaResponseDTO> listarTodosPaginado(int page, int limit, Long categoriaId) {
+        PageRequest pageable = PageRequest.of(page - 1, limit, Sort.by("nombre").ascending());
+        List<ProblemaResponseDTO> data = problemaTicketRepository
+                .findAllPaged(categoriaId, pageable)
+                .stream().map(this::mapToDTO).collect(Collectors.toList());
+        long total = problemaTicketRepository.countAll(categoriaId);
+        int totalPages = (int) Math.ceil((double) total / limit);
+        return new PageResponse<>(data, total, page, totalPages);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public ProblemaResponseDTO obtenerPorId(Long id, Long empresaId) {
         ProblemaTicket problema = problemaTicketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Problema no encontrado con id: " + id));
@@ -63,8 +90,8 @@ public class ProblemaTicketServiceImpl implements ProblemaTicketService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> contarProblemasPorCategoria() {
-        List<Object[]> filas = problemaTicketRepository.contarProblemasPorCategoria();
+    public List<Map<String, Object>> contarProblemasPorCategoria(Long empresaId) {
+        List<Object[]> filas = problemaTicketRepository.contarProblemasPorCategoria(empresaId);
         List<Map<String, Object>> resultado = new ArrayList<>();
         for (Object[] fila : filas) {
             Map<String, Object> item = new HashMap<>();
@@ -80,6 +107,14 @@ public class ProblemaTicketServiceImpl implements ProblemaTicketService {
     public List<ProblemaResponseDTO> buscarPorTexto(String texto) {
         return problemaTicketRepository.buscarPorTexto(texto).stream()
                 .map(this::mapToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProblemaResponseDTO> listarTodosPorCategoria(Long categoriaId) {
+        return problemaTicketRepository.findAllByCategoriaId(categoriaId).stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
     @Override

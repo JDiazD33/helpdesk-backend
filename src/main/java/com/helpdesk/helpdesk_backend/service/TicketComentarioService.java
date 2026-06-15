@@ -10,6 +10,6 @@ public interface TicketComentarioService {
     List<ComentarioResponseDTO> listarComentariosPorTicket(Long ticketId, Long empresaIdContexto);
     List<ComentarioResponseDTO> listarPorUsuario(Long usuarioId);
     List<ComentarioResponseDTO> buscarPorTexto(String texto);
-    List<Map<String, Object>> rankingUsuariosComentarios();
+    List<Map<String, Object>> rankingUsuariosComentarios(Long empresaId);
     List<ComentarioResponseDTO> comentariosRecientesEmpresa(Long empresaId, int dias);
 }

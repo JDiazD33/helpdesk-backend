@@ -4,12 +4,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
+
+import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -18,10 +22,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.helpdesk.helpdesk_backend.dto.AsignarAgenteRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CierreRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.TicketConComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
+import com.helpdesk.helpdesk_backend.service.FileStorageService;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
 import jakarta.validation.Valid;
@@ -33,15 +41,18 @@ public class TicketController {
 
     // Inyección de dependencias del servicio de tickets
     private final TicketService ticketService;
+    private final FileStorageService fileStorageService;
 
     // Constructor para inyectar el servicio de tickets
-    public TicketController(TicketService ticketService) {
+    public TicketController(TicketService ticketService, FileStorageService fileStorageService) {
         this.ticketService = ticketService;
+        this.fileStorageService = fileStorageService;
     }
 
     @GetMapping
-    public ResponseEntity<List<Ticket>> listarTodos() {
-        return ResponseEntity.ok(ticketService.listarTodos());
+    public ResponseEntity<List<Ticket>> listarTodos(
+            @RequestParam(required = false) Boolean agente) {
+        return ResponseEntity.ok(ticketService.listarTodos(agente));
     }
 
     @GetMapping("/{id}")
@@ -59,8 +70,10 @@ public class TicketController {
     }
 
     @GetMapping("/empresa/{empresaId}")
-    public ResponseEntity<List<Ticket>> listarPorEmpresa(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(ticketService.listarPorEmpresaId(empresaId));
+    public ResponseEntity<List<Ticket>> listarPorEmpresa(
+            @PathVariable Long empresaId,
+            @RequestParam(required = false) Boolean agente) {
+        return ResponseEntity.ok(ticketService.listarPorEmpresaId(empresaId, agente));
     }
 
     @GetMapping("/cliente/{clienteId}")
@@ -136,6 +149,11 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.listarPrioridadAltaPorEmpresa(empresaId));
     }
 
+    @GetMapping("/prioridad-alta")
+    public ResponseEntity<List<Ticket>> listarPrioridadAltaGlobal() {
+        return ResponseEntity.ok(ticketService.listarPrioridadAltaGlobal());
+    }
+
     // ── 4 nuevas consultas JPQL ──
 
     @GetMapping("/empresa/{empresaId}/buscar")
@@ -150,6 +168,20 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.listarSinAsignar(empresaId));
     }
 
+    @GetMapping("/sin-asignar")
+    public ResponseEntity<List<Ticket>> listarSinAsignarGlobal() {
+        return ResponseEntity.ok(ticketService.listarSinAsignarGlobal());
+    }
+
+    @GetMapping("/periodo")
+    public ResponseEntity<List<Ticket>> listarPorPeriodoGlobal(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin) {
+        LocalDateTime desde = inicio.atStartOfDay();
+        LocalDateTime hasta = fin.atTime(LocalTime.MAX);
+        return ResponseEntity.ok(ticketService.listarPorPeriodoGlobal(desde, hasta));
+    }
+
     @GetMapping("/cliente/{clienteId}/empresa/{empresaId}/detalle")
     public ResponseEntity<List<Ticket>> listarPorClienteConDetalles(
             @PathVariable Long clienteId,
@@ -162,6 +194,50 @@ public class TicketController {
             @PathVariable Long empresaId,
             @RequestParam(defaultValue = "7") int dias) {
         return ResponseEntity.ok(ticketService.listarActualizadosRecientemente(empresaId, dias));
+    }
+
+    // ── Cambio de estado ──
+
+    @PutMapping("/{id}/estado")
+    public ResponseEntity<Ticket> cambiarEstado(
+            @PathVariable Long id,
+            @Valid @RequestBody CambiarEstadoRequestDTO request) {
+        return ResponseEntity.ok(ticketService.cambiarEstado(id, request));
+    }
+
+    // ── Asignar agente ──
+
+    @PutMapping("/{id}/asignar")
+    public ResponseEntity<Ticket> asignarAgente(
+            @PathVariable Long id,
+            @Valid @RequestBody AsignarAgenteRequestDTO request) {
+        return ResponseEntity.ok(ticketService.asignarAgente(id, request.getAgenteId()));
+    }
+
+    // ── Subir imagen de cierre ──
+
+    @PostMapping("/{id}/imagen-cierre")
+    public ResponseEntity<Map<String, String>> subirImagenCierre(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        String contentType = file.getContentType();
+        if (!List.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Tipo de archivo no permitido. Solo JPG, PNG o WEBP."));
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return ResponseEntity.badRequest().body(Map.of("error", "El archivo supera los 5MB."));
+        }
+        String ruta = fileStorageService.guardarImagen(file, id);
+        return ResponseEntity.ok(Map.of("imagenCierre", ruta));
+    }
+
+    // ── Guardar cierre (justificación + imagen) ──
+
+    @PatchMapping("/{id}/cierre")
+    public ResponseEntity<Ticket> guardarCierre(
+            @PathVariable Long id,
+            @Valid @RequestBody CierreRequestDTO request) {
+        return ResponseEntity.ok(ticketService.guardarCierre(id, request));
     }
 
     // ── CRUD ──

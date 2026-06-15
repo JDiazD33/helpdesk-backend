@@ -28,6 +28,7 @@ public interface TicketComentarioRepository extends JpaRepository<TicketComentar
         /**
          * Listar comentarios realizados por un usuario,
          * ordenados del más reciente al más antiguo.
+         * (Consulta por usuario específico, no por tenant: no se excluye owner.)
          */
         @Query("""
                         SELECT c FROM TicketComentario c
@@ -65,29 +66,39 @@ public interface TicketComentarioRepository extends JpaRepository<TicketComentar
         List<TicketComentario> buscarPorTexto(@Param("texto") String texto);
 
         /**
-         * Contar comentarios realizados por cada usuario.
-         * Útil para métricas o actividad. rankingUsuariosComentarios 
+         * Contar comentarios realizados por cada usuario dentro de un tenant,
+         * excluyendo al ADMIN_OWNER. Si empresaId es NULL, es la vista global
+         * del owner y no se aplica el filtro.
          */
         @Query("""
                         SELECT c.usuario.nombres, COUNT(c)
                         FROM TicketComentario c
+                        JOIN c.ticket t
+                        WHERE (:empresaId IS NULL OR t.empresa.id = :empresaId)
+                        AND (:empresaId IS NULL OR c.usuario.rol.nombre <> :rolOwner)
                         GROUP BY c.usuario.nombres
                         ORDER BY COUNT(c) DESC
                         """)
-        List<Object[]> rankingUsuariosComentarios();
+        List<Object[]> rankingUsuariosComentariosExcluyendoOwner(
+                        @Param("empresaId") Long empresaId,
+                        @Param("rolOwner") String rolOwner);
 
         /**
-         * Obtener comentarios recientes de una empresa.
-         * Permite mostrar actividad reciente del sistema.
+         * Obtener comentarios recientes de una empresa, excluyendo los del
+         * ADMIN_OWNER. Aunque el owner raramente comenta, se aplica el filtro
+         * para no contaminar el feed del tenant.
          */
         @Query("""
                         SELECT c FROM TicketComentario c
+                        JOIN FETCH c.usuario u
                         JOIN FETCH c.ticket t
                         WHERE t.empresa.id = :empresaId
                         AND c.fechaEnvio >= :fecha
+                        AND u.rol.nombre <> :rolOwner
                         ORDER BY c.fechaEnvio DESC
                         """)
-        List<TicketComentario> comentariosRecientesEmpresa(
+        List<TicketComentario> comentariosRecientesEmpresaExcluyendoOwner(
                         @Param("empresaId") Long empresaId,
-                        @Param("fecha") LocalDateTime fecha);
+                        @Param("fecha") LocalDateTime fecha,
+                        @Param("rolOwner") String rolOwner);
 }

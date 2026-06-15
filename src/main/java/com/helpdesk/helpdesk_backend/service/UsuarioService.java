@@ -20,6 +20,7 @@ public interface UsuarioService {
     List<Usuario> listarPorEstado(boolean activo);
     List<Usuario> listarActivosPorEmpresaConDetalles(Long empresaId);
     List<Usuario> buscarPorNombreOApellido(Long empresaId, String termino);
-    List<UsuarioRolDTO> contarUsuariosPorRol();
+    List<UsuarioRolDTO> contarUsuariosPorRol(Long empresaId);
     List<Usuario> listarAgentesActivos(Long empresaId);
+    List<Usuario> listarConFiltros(Long empresaId, String search, List<Long> rolIds);
 }

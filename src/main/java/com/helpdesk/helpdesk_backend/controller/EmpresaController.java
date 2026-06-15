@@ -32,7 +32,11 @@ public class EmpresaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EmpresaResponseDTO>> listarTodos() {
+    public ResponseEntity<List<EmpresaResponseDTO>> listarTodos(
+            @RequestParam(required = false) String ruc) {
+        if (ruc != null && !ruc.isBlank()) {
+            return ResponseEntity.ok(empresaService.buscarPorRuc(ruc));
+        }
         return ResponseEntity.ok(empresaService.listarEmpresasActivas());
     }
 

@@ -37,7 +37,7 @@ class ReporteControllerTest {
 
     @Test
     void ticketsPorMes_debeRetornarLista() throws Exception {
-        Mockito.when(reporteService.ticketsPorMes(1L, 2025))
+        Mockito.when(reporteService.ticketsPorMes(1L, 2025, null))
                 .thenReturn(List.of(
                         Map.of("mes", 1, "total", 5),
                         Map.of("mes", 2, "total", 3)

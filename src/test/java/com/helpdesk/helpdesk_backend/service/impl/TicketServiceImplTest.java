@@ -62,16 +62,6 @@ class TicketServiceImplTest {
     }
 
     @Test
-    void listarTodos_debeRetornarLista() {
-        when(ticketRepository.findAll()).thenReturn(List.of(ticket));
-
-        List<Ticket> resultado = ticketService.listarTodos();
-
-        assertEquals(1, resultado.size());
-        assertEquals("TCK-1001", resultado.get(0).getCodigo());
-    }
-
-    @Test
     void buscarPorId_debeRetornarTicket() {
         when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
 

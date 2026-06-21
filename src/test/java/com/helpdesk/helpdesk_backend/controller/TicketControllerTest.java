@@ -10,6 +10,8 @@ import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
 import com.helpdesk.helpdesk_backend.security.CustomUserDetailsService;
 import com.helpdesk.helpdesk_backend.security.JwtUtil;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
+import com.helpdesk.helpdesk_backend.service.FileStorageService;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,12 @@ class TicketControllerTest {
     private TicketService ticketService;
 
     @MockBean
+    private FileStorageService fileStorageService;
+
+    @MockBean
+    private TenantSecurity tenantSecurity;
+
+    @MockBean
     private CustomUserDetailsService customUserDetailsService;
 
     @MockBean
@@ -68,20 +76,24 @@ class TicketControllerTest {
                 .cliente(cliente)
                 .empresa(empresa)
                 .build();
+
+        // Por defecto el tenant es la empresa 1 (ADMIN_EMPRESA/AGENTE/CLIENTE)
+        Mockito.when(tenantSecurity.getEmpresaId()).thenReturn(1L);
+        Mockito.when(tenantSecurity.resolveEmpresaId(Mockito.anyLong())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
     void listarPorEmpresaId_debeRetornarLista() throws Exception {
-        Mockito.when(ticketService.listarPorEmpresaId(1L)).thenReturn(List.of(ticket));
+        Mockito.when(ticketService.buscarPorIdAndEmpresa(eq(1L), any())).thenReturn(Optional.of(ticket));
 
         mockMvc.perform(get("/api/tickets/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].titulo").value("Falla de red"));
+                .andExpect(jsonPath("$.titulo").value("Falla de red"));
     }
 
     @Test
     void buscarPorId_debeRetornarTicket() throws Exception {
-        Mockito.when(ticketService.buscarPorId(1L)).thenReturn(Optional.of(ticket));
+        Mockito.when(ticketService.buscarPorIdAndEmpresa(eq(1L), any())).thenReturn(Optional.of(ticket));
 
         mockMvc.perform(get("/api/tickets/1"))
                 .andExpect(status().isOk())
@@ -90,7 +102,7 @@ class TicketControllerTest {
 
     @Test
     void buscarPorId_noExiste_debeRetornar404() throws Exception {
-        Mockito.when(ticketService.buscarPorId(99L)).thenReturn(Optional.empty());
+        Mockito.when(ticketService.buscarPorIdAndEmpresa(eq(99L), any())).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/tickets/99"))
                 .andExpect(status().isNotFound());
@@ -115,7 +127,7 @@ class TicketControllerTest {
 
     @Test
     void listarPorEmpresa_debeRetornarLista() throws Exception {
-        Mockito.when(ticketService.listarPorEmpresaId(1L)).thenReturn(List.of(ticket));
+        Mockito.when(ticketService.listarPorEmpresaId(eq(1L), Mockito.isNull())).thenReturn(List.of(ticket));
 
         mockMvc.perform(get("/api/tickets/empresa/1"))
                 .andExpect(status().isOk())
@@ -255,7 +267,7 @@ class TicketControllerTest {
 
     @Test
     void actualizar_debeRetornarTicketActualizado() throws Exception {
-        Mockito.when(ticketService.actualizar(eq(1L), any())).thenReturn(ticket);
+        Mockito.when(ticketService.actualizar(eq(1L), anyLong(), any())).thenReturn(ticket);
 
         mockMvc.perform(put("/api/tickets/1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -266,7 +278,7 @@ class TicketControllerTest {
 
     @Test
     void eliminar_debeRetornarNoContent() throws Exception {
-        Mockito.doNothing().when(ticketService).eliminar(1L);
+        Mockito.doNothing().when(ticketService).eliminar(eq(1L), anyLong());
 
         mockMvc.perform(delete("/api/tickets/1"))
                 .andExpect(status().isNoContent());

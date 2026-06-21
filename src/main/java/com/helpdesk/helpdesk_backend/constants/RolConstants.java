@@ -14,6 +14,17 @@ public static final String ADMIN_OWNER = "ADMIN_OWNER";
             CLIENTE
     );
 
+    /**
+     * Roles del sistema que NO pueden ser creados, renombrados, desactivados
+     * ni modificados en sus permisos. Son los anclajes del modelo de seguridad
+     * (cambiarles el nombre o los permisos podría dejar al sistema sin admin
+     * o permitir escalada de privilegios).
+     */
+    public static final List<String> ROLES_PROTEGIDOS = List.of(
+            ADMIN_OWNER,
+            ADMIN_EMPRESA
+    );
+
     private RolConstants() {
     }
 }

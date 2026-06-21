@@ -105,14 +105,11 @@ class EmpresaServiceImplTest {
 
     @Test
     void listarEmpresasActivas_RetornaListaDeDTOs() {
-        Empresa empresaInactiva = Empresa.builder().id(2L).activo(false).build();
-        List<Empresa> empresas = Arrays.asList(empresaMock, empresaInactiva);
-        
-        when(empresaRepository.findAll()).thenReturn(empresas);
+        when(empresaRepository.listarEmpresasActivas()).thenReturn(List.of(empresaMock));
 
         List<EmpresaResponseDTO> resultado = empresaService.listarEmpresasActivas();
 
-        assertThat(resultado).hasSize(1); 
+        assertThat(resultado).hasSize(1);
         assertThat(resultado.get(0).getId()).isEqualTo(1L);
     }
 

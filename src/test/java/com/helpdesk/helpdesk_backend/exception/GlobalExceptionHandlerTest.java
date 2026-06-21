@@ -71,14 +71,19 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void handleGeneralException_DeberiaRetornar500() {
+    void handleGeneralException_DeberiaRetornar500ConMensajeGenerico() {
         ResponseEntity<Map<String, Object>> response = handler.handleGeneralException(
-                new Exception("Error inesperado")
+                new Exception("Detalle interno de Hibernate: SQL error, tabla 'usuario' no existe...")
         );
 
         assertThat(response.getStatusCodeValue()).isEqualTo(500);
         assertThat(response.getBody()).containsEntry("error", "Internal Server Error");
-        assertThat(response.getBody()).containsEntry("message", "Error inesperado");
+        // El mensaje interno NO debe filtrarse al cliente
+        assertThat(response.getBody()).containsEntry("message", "Error interno del servidor");
+        assertThat(response.getBody().get("message").toString())
+                .doesNotContain("Hibernate")
+                .doesNotContain("SQL")
+                .doesNotContain("tabla");
     }
 
     @SuppressWarnings("unused")

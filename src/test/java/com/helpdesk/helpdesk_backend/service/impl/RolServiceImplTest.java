@@ -124,9 +124,9 @@ class RolServiceImplTest {
     @Test
     void actualizar_nombreDuplicado_lanzaExcepcion() {
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rol));
-        when(rolRepository.existsByNombre("ADMIN_EMPRESA")).thenReturn(true);
+        when(rolRepository.existsByNombre("SOPORTE_L2")).thenReturn(true);
 
-        Rol nuevoRol = Rol.builder().nombre("ADMIN_EMPRESA").build();
+        Rol nuevoRol = Rol.builder().nombre("SOPORTE_L2").build();
 
         assertThrows(DuplicateResourceException.class, () ->
                 rolService.actualizar(1L, nuevoRol));
@@ -234,5 +234,71 @@ class RolServiceImplTest {
         Optional<Rol> resultado = rolService.buscarPorIdConPermisos(99L);
 
         assertFalse(resultado.isPresent());
+    }
+
+    // ── Tests de roles protegidos (ADMIN_OWNER, ADMIN_EMPRESA) ──
+
+    @Test
+    void guardar_conNombreProtegido_lanzaExcepcion() {
+        Rol rolOwner = Rol.builder().nombre("ADMIN_OWNER").build();
+
+        assertThrows(IllegalArgumentException.class, () -> rolService.guardar(rolOwner));
+
+        verify(rolRepository, never()).save(any());
+    }
+
+    @Test
+    void guardar_conNombreAdminEmpresa_lanzaExcepcion() {
+        Rol rolAdmin = Rol.builder().nombre("ADMIN_EMPRESA").build();
+
+        assertThrows(IllegalArgumentException.class, () -> rolService.guardar(rolAdmin));
+
+        verify(rolRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizar_rolProtegido_lanzaExcepcion() {
+        Rol rolOwner = Rol.builder().id(1L).nombre("ADMIN_OWNER").activo(true).build();
+        when(rolRepository.findById(1L)).thenReturn(Optional.of(rolOwner));
+
+        Rol nuevo = Rol.builder().nombre("ADMIN_OWNER").activo(true).build();
+
+        assertThrows(IllegalArgumentException.class, () -> rolService.actualizar(1L, nuevo));
+
+        verify(rolRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizar_renombrarARolProtegido_lanzaExcepcion() {
+        // rol normal que intenta renombrarse a ADMIN_EMPRESA
+        when(rolRepository.findById(1L)).thenReturn(Optional.of(rol));
+
+        Rol intento = Rol.builder().nombre("ADMIN_EMPRESA").activo(true).build();
+
+        assertThrows(IllegalArgumentException.class, () -> rolService.actualizar(1L, intento));
+
+        verify(rolRepository, never()).save(any());
+    }
+
+    @Test
+    void eliminar_rolProtegido_lanzaExcepcion() {
+        Rol rolOwner = Rol.builder().id(1L).nombre("ADMIN_OWNER").activo(true).build();
+        when(rolRepository.findById(1L)).thenReturn(Optional.of(rolOwner));
+
+        assertThrows(IllegalArgumentException.class, () -> rolService.eliminar(1L));
+
+        assertTrue(rolOwner.isActivo());
+        verify(rolRepository, never()).save(any());
+    }
+
+    @Test
+    void asignarPermisos_rolProtegido_lanzaExcepcion() {
+        Rol rolOwner = Rol.builder().id(1L).nombre("ADMIN_OWNER").activo(true).build();
+        when(rolRepository.findByIdWithPermisos(1L)).thenReturn(Optional.of(rolOwner));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                rolService.asignarPermisos(1L, List.of(1L)));
+
+        verify(rolRepository, never()).save(any());
     }
 }

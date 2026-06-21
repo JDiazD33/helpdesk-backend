@@ -29,6 +29,7 @@ import com.helpdesk.helpdesk_backend.dto.TicketConComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.FileStorageService;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
@@ -42,11 +43,14 @@ public class TicketController {
     // Inyección de dependencias del servicio de tickets
     private final TicketService ticketService;
     private final FileStorageService fileStorageService;
+    private final TenantSecurity tenant;
 
     // Constructor para inyectar el servicio de tickets
-    public TicketController(TicketService ticketService, FileStorageService fileStorageService) {
+    public TicketController(TicketService ticketService, FileStorageService fileStorageService,
+                            TenantSecurity tenant) {
         this.ticketService = ticketService;
         this.fileStorageService = fileStorageService;
+        this.tenant = tenant;
     }
 
     @GetMapping
@@ -57,7 +61,8 @@ public class TicketController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Ticket> buscarPorId(@PathVariable Long id) {
-        return ticketService.buscarPorId(id)
+        Long empresaId = tenant.getEmpresaId();
+        return ticketService.buscarPorIdAndEmpresa(id, empresaId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -73,7 +78,8 @@ public class TicketController {
     public ResponseEntity<List<Ticket>> listarPorEmpresa(
             @PathVariable Long empresaId,
             @RequestParam(required = false) Boolean agente) {
-        return ResponseEntity.ok(ticketService.listarPorEmpresaId(empresaId, agente));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.listarPorEmpresaId(resolvedId, agente));
     }
 
     @GetMapping("/cliente/{clienteId}")
@@ -108,7 +114,8 @@ public class TicketController {
     /** Tickets de una empresa con datos del cliente, ordenados por fecha DESC */
     @GetMapping("/empresa/{empresaId}/detalle")
     public ResponseEntity<List<Ticket>> listarPorEmpresaConDetalles(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(ticketService.listarPorEmpresaConDetalles(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.listarPorEmpresaConDetalles(resolvedId));
     }
 
     /** Filtro combinado: empresa + estado (opcional) + prioridad (opcional) */
@@ -117,13 +124,15 @@ public class TicketController {
             @PathVariable Long empresaId,
             @RequestParam(required = false) EstadoTicket estado,
             @RequestParam(required = false) PrioridadTicket prioridad) {
-        return ResponseEntity.ok(ticketService.filtrarTickets(empresaId, estado, prioridad));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.filtrarTickets(resolvedId, estado, prioridad));
     }
 
     /** Conteo de tickets por estado para dashboard */
     @GetMapping("/empresa/{empresaId}/conteo")
     public ResponseEntity<List<Object[]>> contarPorEstado(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(ticketService.contarPorEstado(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.contarPorEstado(resolvedId));
     }
 
     /** Tickets de un agente filtrados por estado */
@@ -139,14 +148,16 @@ public class TicketController {
             @PathVariable Long empresaId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin) {
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
         LocalDateTime desde = inicio.atStartOfDay();
         LocalDateTime hasta = fin.atTime(LocalTime.MAX);
-        return ResponseEntity.ok(ticketService.listarPorEmpresaYPeriodo(empresaId, desde, hasta));
+        return ResponseEntity.ok(ticketService.listarPorEmpresaYPeriodo(resolvedId, desde, hasta));
     }
 
     @GetMapping("/empresa/{empresaId}/prioridad-alta")
     public ResponseEntity<List<Ticket>> listarPrioridadAlta(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(ticketService.listarPrioridadAltaPorEmpresa(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.listarPrioridadAltaPorEmpresa(resolvedId));
     }
 
     @GetMapping("/prioridad-alta")
@@ -160,12 +171,14 @@ public class TicketController {
     public ResponseEntity<List<Ticket>> buscarPorTexto(
             @PathVariable Long empresaId,
             @RequestParam String texto) {
-        return ResponseEntity.ok(ticketService.buscarPorTexto(empresaId, texto));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.buscarPorTexto(resolvedId, texto));
     }
 
     @GetMapping("/empresa/{empresaId}/sin-asignar")
     public ResponseEntity<List<Ticket>> listarSinAsignar(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(ticketService.listarSinAsignar(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.listarSinAsignar(resolvedId));
     }
 
     @GetMapping("/sin-asignar")
@@ -186,14 +199,16 @@ public class TicketController {
     public ResponseEntity<List<Ticket>> listarPorClienteConDetalles(
             @PathVariable Long clienteId,
             @PathVariable Long empresaId) {
-        return ResponseEntity.ok(ticketService.listarPorClienteConDetalles(clienteId, empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.listarPorClienteConDetalles(clienteId, resolvedId));
     }
 
     @GetMapping("/empresa/{empresaId}/actualizados")
     public ResponseEntity<List<Ticket>> listarActualizadosRecientemente(
             @PathVariable Long empresaId,
             @RequestParam(defaultValue = "7") int dias) {
-        return ResponseEntity.ok(ticketService.listarActualizadosRecientemente(empresaId, dias));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.listarActualizadosRecientemente(resolvedId, dias));
     }
 
     // ── Cambio de estado ──
@@ -202,7 +217,8 @@ public class TicketController {
     public ResponseEntity<Ticket> cambiarEstado(
             @PathVariable Long id,
             @Valid @RequestBody CambiarEstadoRequestDTO request) {
-        return ResponseEntity.ok(ticketService.cambiarEstado(id, request));
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(ticketService.cambiarEstado(id, empresaId, request));
     }
 
     // ── Asignar agente ──
@@ -211,7 +227,8 @@ public class TicketController {
     public ResponseEntity<Ticket> asignarAgente(
             @PathVariable Long id,
             @Valid @RequestBody AsignarAgenteRequestDTO request) {
-        return ResponseEntity.ok(ticketService.asignarAgente(id, request.getAgenteId()));
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(ticketService.asignarAgente(id, empresaId, request.getAgenteId()));
     }
 
     // ── Subir imagen de cierre ──
@@ -237,7 +254,8 @@ public class TicketController {
     public ResponseEntity<Ticket> guardarCierre(
             @PathVariable Long id,
             @Valid @RequestBody CierreRequestDTO request) {
-        return ResponseEntity.ok(ticketService.guardarCierre(id, request));
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(ticketService.guardarCierre(id, empresaId, request));
     }
 
     // ── CRUD ──
@@ -258,12 +276,14 @@ public class TicketController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Ticket> actualizar(@PathVariable Long id, @Valid @RequestBody Ticket ticket) {
-        return ResponseEntity.ok(ticketService.actualizar(id, ticket));
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(ticketService.actualizar(id, empresaId, ticket));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        ticketService.eliminar(id);
+        Long empresaId = tenant.getEmpresaId();
+        ticketService.eliminar(id, empresaId);
         return ResponseEntity.noContent().build();
     }
 }

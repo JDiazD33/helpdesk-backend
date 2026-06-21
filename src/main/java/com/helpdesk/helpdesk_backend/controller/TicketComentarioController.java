@@ -9,13 +9,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.ComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ComentarioResponseDTO;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.TicketComentarioService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,13 +30,14 @@ import lombok.RequiredArgsConstructor;
 public class TicketComentarioController {
 
     private final TicketComentarioService comentarioService;
+    private final TenantSecurity tenant;
 
     @PostMapping
     @Operation(summary = "Agregar un comentario a un ticket")
     public ResponseEntity<ComentarioResponseDTO> agregarComentario(
-            @Valid @RequestBody ComentarioRequestDTO requestDTO,
-            @RequestHeader("X-Empresa-Id") Long empresaId,
-            @RequestHeader("x-Usuario-Id") Long usuarioId) {
+            @Valid @RequestBody ComentarioRequestDTO requestDTO) {
+        Long empresaId = tenant.getEmpresaId();
+        Long usuarioId = tenant.getUserId();
         ComentarioResponseDTO response = comentarioService.agregarComentario(requestDTO, usuarioId, empresaId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -44,8 +45,8 @@ public class TicketComentarioController {
     @GetMapping("/ticket/{ticketId}")
     @Operation(summary = "Listar todos los comentarios de un ticket")
     public ResponseEntity<List<ComentarioResponseDTO>> listarComentariosPorTicket(
-            @PathVariable Long ticketId,
-            @RequestHeader("X-Empresa-Id") Long empresaId) {
+            @PathVariable Long ticketId) {
+        Long empresaId = tenant.getEmpresaId();
         return ResponseEntity.ok(comentarioService.listarComentariosPorTicket(ticketId, empresaId));
     }
 

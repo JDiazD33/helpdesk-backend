@@ -1,8 +1,13 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +27,38 @@ import com.helpdesk.helpdesk_backend.repository.ProblemaTicketRepository;
 import com.helpdesk.helpdesk_backend.repository.TicketComentarioRepository;
 import com.helpdesk.helpdesk_backend.repository.TicketRepository;
 import com.helpdesk.helpdesk_backend.repository.UsuarioRepository;
+import com.helpdesk.helpdesk_backend.security.SecurityUtils;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
 @Service
 @Transactional
 public class TicketServiceImpl implements TicketService{
-    
+
+    /**
+     * Máquina de estados del ticket. Define qué transiciones son válidas.
+     * CERRADO es terminal: no se puede sacar un ticket de CERRADO.
+     * Las transiciones al mismo estado se tratan como no-op (no se generan
+     * comentarios del sistema) y nunca lanzan excepción.
+     */
+    private static final Map<EstadoTicket, Set<EstadoTicket>> TRANSICIONES_PERMITIDAS;
+
+    static {
+        Map<EstadoTicket, Set<EstadoTicket>> map = new EnumMap<>(EstadoTicket.class);
+        map.put(EstadoTicket.ABIERTO, EnumSet.of(
+                EstadoTicket.EN_PROGRESO,
+                EstadoTicket.RESUELTO,
+                EstadoTicket.CERRADO));
+        map.put(EstadoTicket.EN_PROGRESO, EnumSet.of(
+                EstadoTicket.ABIERTO,
+                EstadoTicket.RESUELTO,
+                EstadoTicket.CERRADO));
+        map.put(EstadoTicket.RESUELTO, EnumSet.of(
+                EstadoTicket.EN_PROGRESO,
+                EstadoTicket.CERRADO));
+        map.put(EstadoTicket.CERRADO, EnumSet.noneOf(EstadoTicket.class));
+        TRANSICIONES_PERMITIDAS = Collections.unmodifiableMap(map);
+    }
+
     private final TicketRepository ticketRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmpresaRepository empresaRepository;
@@ -66,6 +97,12 @@ public class TicketServiceImpl implements TicketService{
     @Transactional(readOnly = true)
     public Optional<Ticket> buscarPorId(Long id) {
         return ticketRepository.findById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Ticket> buscarPorIdAndEmpresa(Long id, Long empresaId) {
+        return ticketRepository.findByIdAndEmpresaId(id, empresaId);
     }
 
     /**
@@ -112,22 +149,22 @@ public class TicketServiceImpl implements TicketService{
     }
 
     /**
-     * Actualiza un ticket existente.
-     * También resuelve las referencias de entidades anidadas.
+     * Actualiza un ticket existente, restringido al tenant del JWT.
+     * - NO permite reasignar empresa ni cliente (se conservan los del registro original).
+     * - NO permite cambiar el estado: para eso se debe usar el endpoint
+     *   {@code PUT /api/tickets/{id}/estado}, que valida la máquina de transiciones.
+     * - El resto de campos editables (titulo, descripcion, prioridad, agenteAsignado,
+     *   categoria, problema, contacto) se toman del body.
      */
     @Override
-    public Ticket actualizar(Long id, Ticket ticket) {
-        Ticket ticketExistente = ticketRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+    public Ticket actualizar(Long id, Long empresaId, Ticket ticket) {
+        Ticket ticketExistente = obtenerTicketDeTenant(id, empresaId);
 
         ticketExistente.setTitulo(ticket.getTitulo());
         ticketExistente.setDescripcion(ticket.getDescripcion());
         ticketExistente.setTelefonoReportante(ticket.getTelefonoReportante());
         ticketExistente.setCorreoReportante(ticket.getCorreoReportante());
 
-        if (ticket.getEstado() != null) {
-            ticketExistente.setEstado(ticket.getEstado());
-        }
         if (ticket.getPrioridad() != null) {
             ticketExistente.setPrioridad(ticket.getPrioridad());
         }
@@ -135,10 +172,8 @@ public class TicketServiceImpl implements TicketService{
         ticketExistente.setJustificacionCierre(ticket.getJustificacionCierre());
         ticketExistente.setImagenCierre(ticket.getImagenCierre());
 
-        // Resolver referencias de entidades anidadas
-        if (ticket.getCliente() != null && ticket.getCliente().getId() != null) {
-            ticketExistente.setCliente(usuarioRepository.getReferenceById(ticket.getCliente().getId()));
-        }
+        // empresa y cliente son inmutables tras la creación: se conservan los del registro.
+        // Solo se reasignan agenteAsignado, categoria y problema si vienen en el body.
         if (ticket.getAgenteAsignado() != null && ticket.getAgenteAsignado().getId() != null) {
             ticketExistente.setAgenteAsignado(usuarioRepository.getReferenceById(ticket.getAgenteAsignado().getId()));
         }
@@ -148,20 +183,20 @@ public class TicketServiceImpl implements TicketService{
         if (ticket.getProblema() != null && ticket.getProblema().getId() != null) {
             ticketExistente.setProblema(problemaRepository.getReferenceById(ticket.getProblema().getId()));
         }
-        if (ticket.getEmpresa() != null && ticket.getEmpresa().getId() != null) {
-            ticketExistente.setEmpresa(empresaRepository.getReferenceById(ticket.getEmpresa().getId()));
-        }
+
+        // Si el cliente intenta enviar estado, se ignora silenciosamente.
+        // El estado SOLO se modifica a través de cambiarEstado(), que valida transiciones.
+        // NOTA: no se delega al endpoint /estado para no acoplar el PUT genérico
+        // con la lógica de transiciones; se prefiere ignorar el campo si viene mal.
 
         return ticketRepository.save(ticketExistente);
     }
 
     @Override
-    public void eliminar(Long id) {
-        if (!ticketRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Ticket no encontrado con id: " + id);
-        }
-        comentarioRepository.deleteByTicketId(id);
-        ticketRepository.deleteById(id);
+    public void eliminar(Long id, Long empresaId) {
+        Ticket ticket = obtenerTicketDeTenant(id, empresaId);
+        comentarioRepository.deleteByTicketId(ticket.getId());
+        ticketRepository.deleteById(ticket.getId());
     }
 
     @Override
@@ -313,37 +348,40 @@ public class TicketServiceImpl implements TicketService{
     }
 
     @Override
-    public Ticket cambiarEstado(Long id, CambiarEstadoRequestDTO request) {
-        Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+    public Ticket cambiarEstado(Long id, Long empresaId, CambiarEstadoRequestDTO request) {
+        Ticket ticket = obtenerTicketDeTenant(id, empresaId);
         if (request.getEstado() == EstadoTicket.CERRADO
                 && (request.getJustificacionCierre() == null || request.getJustificacionCierre().isBlank())) {
             throw new IllegalArgumentException("La justificacion de cierre es obligatoria para estado CERRADO");
         }
         EstadoTicket estadoAnterior = ticket.getEstado();
+        validarTransicion(estadoAnterior, request.getEstado());
         ticket.setEstado(request.getEstado());
         ticket.setJustificacionCierre(request.getJustificacionCierre());
         Ticket guardado = ticketRepository.save(ticket);
-        if (request.getUsuarioId() != null && estadoAnterior != request.getEstado()) {
-            String texto = "Estado cambiado de " + estadoAnterior.name() + " a " + request.getEstado().name();
-            Usuario usuario = usuarioRepository.getReferenceById(request.getUsuarioId());
-            TicketComentario comentario = TicketComentario.builder()
-                    .mensaje(texto)
-                    .ticket(guardado)
-                    .usuario(usuario)
-                    .esSistema(true)
-                    .build();
-            comentarioRepository.save(comentario);
+        if (estadoAnterior != request.getEstado()) {
+            Long usuarioId = SecurityUtils.getCurrentUserId();
+            if (usuarioId != null) {
+                String texto = "Estado cambiado de " + estadoAnterior.name() + " a " + request.getEstado().name();
+                Usuario usuario = usuarioRepository.getReferenceById(usuarioId);
+                TicketComentario comentario = TicketComentario.builder()
+                        .mensaje(texto)
+                        .ticket(guardado)
+                        .usuario(usuario)
+                        .esSistema(true)
+                        .build();
+                comentarioRepository.save(comentario);
+            }
         }
         return guardado;
     }
 
     @Override
-    public Ticket asignarAgente(Long id, Long agenteId) {
-        Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
-        Usuario agente = usuarioRepository.findById(agenteId)
-                .orElseThrow(() -> new ResourceNotFoundException("Agente no encontrado con id: " + agenteId));
+    public Ticket asignarAgente(Long id, Long empresaId, Long agenteId) {
+        Ticket ticket = obtenerTicketDeTenant(id, empresaId);
+        Usuario agente = usuarioRepository.findByIdAndEmpresaId(agenteId, empresaId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Agente no encontrado o no pertenece a la empresa con id: " + agenteId));
         ticket.setAgenteAsignado(agente);
         Ticket guardado = ticketRepository.save(ticket);
         String texto = "Ticket asignado a " + agente.getNombres() + " " + agente.getApellidos();
@@ -358,16 +396,17 @@ public class TicketServiceImpl implements TicketService{
     }
 
     @Override
-    public Ticket guardarCierre(Long id, CierreRequestDTO request) {
-        Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+    public Ticket guardarCierre(Long id, Long empresaId, CierreRequestDTO request) {
+        Ticket ticket = obtenerTicketDeTenant(id, empresaId);
+        validarTransicion(ticket.getEstado(), EstadoTicket.RESUELTO);
         ticket.setEstado(EstadoTicket.RESUELTO);
         ticket.setJustificacionCierre(request.getJustificacionCierre());
         ticket.setImagenCierre(request.getImagenCierre());
         Ticket guardado = ticketRepository.save(ticket);
-        if (request.getUsuarioId() != null) {
+        Long usuarioId = SecurityUtils.getCurrentUserId();
+        if (usuarioId != null) {
             String texto = "Ticket resuelto: " + request.getJustificacionCierre();
-            Usuario usuario = usuarioRepository.getReferenceById(request.getUsuarioId());
+            Usuario usuario = usuarioRepository.getReferenceById(usuarioId);
             TicketComentario comentario = TicketComentario.builder()
                     .mensaje(texto)
                     .ticket(guardado)
@@ -398,6 +437,32 @@ public class TicketServiceImpl implements TicketService{
         }
         if (ticket.getAgenteAsignado() != null && ticket.getAgenteAsignado().getId() != null) {
             ticket.setAgenteAsignado(usuarioRepository.getReferenceById(ticket.getAgenteAsignado().getId()));
+        }
+    }
+
+    /**
+     * Carga un ticket validando que pertenezca a la empresa del tenant.
+     * Devuelve 404 (no 403) para no filtrar la existencia del recurso entre tenants.
+     */
+    private Ticket obtenerTicketDeTenant(Long id, Long empresaId) {
+        return ticketRepository.findByIdAndEmpresaId(id, empresaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+    }
+
+    /**
+     * Valida que la transición de estado sea permitida por la máquina de estados.
+     * Las transiciones al mismo estado se tratan como no-op (permitidas).
+     * Lanza {@link IllegalArgumentException} con las alternativas válidas si no lo es.
+     */
+    private void validarTransicion(EstadoTicket origen, EstadoTicket destino) {
+        if (origen == destino) {
+            return;
+        }
+        Set<EstadoTicket> destinosValidos = TRANSICIONES_PERMITIDAS.getOrDefault(origen, EnumSet.noneOf(EstadoTicket.class));
+        if (!destinosValidos.contains(destino)) {
+            throw new IllegalArgumentException(
+                    "Transicion de estado no permitida: " + origen + " -> " + destino
+                            + ". Transiciones validas desde " + origen + ": " + destinosValidos);
         }
     }
 }

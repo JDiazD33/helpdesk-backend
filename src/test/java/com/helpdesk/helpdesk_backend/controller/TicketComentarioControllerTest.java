@@ -5,6 +5,7 @@ import com.helpdesk.helpdesk_backend.dto.ComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ComentarioResponseDTO;
 import com.helpdesk.helpdesk_backend.security.CustomUserDetailsService;
 import com.helpdesk.helpdesk_backend.security.JwtUtil;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.TicketComentarioService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,9 @@ class TicketComentarioControllerTest {
     private TicketComentarioService comentarioService;
 
     @MockBean
+    private TenantSecurity tenantSecurity;
+
+    @MockBean
     private CustomUserDetailsService customUserDetailsService;
 
     @MockBean
@@ -60,6 +64,10 @@ class TicketComentarioControllerTest {
         comentarioRequest = new ComentarioRequestDTO();
         comentarioRequest.setMensaje("Hola, necesito ayuda");
         comentarioRequest.setTicketId(1L);
+
+        // El tenant del JWT es la empresa 1, usuario 1
+        Mockito.when(tenantSecurity.getEmpresaId()).thenReturn(1L);
+        Mockito.when(tenantSecurity.getUserId()).thenReturn(1L);
     }
 
     @Test
@@ -69,8 +77,6 @@ class TicketComentarioControllerTest {
 
         mockMvc.perform(post("/api/comentarios")
                 .contentType(MediaType.APPLICATION_JSON)
-                .header("X-Empresa-Id", "1")
-                .header("x-Usuario-Id", "1")
                 .content(objectMapper.writeValueAsString(comentarioRequest)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
@@ -84,8 +90,6 @@ class TicketComentarioControllerTest {
 
         mockMvc.perform(post("/api/comentarios")
                 .contentType(MediaType.APPLICATION_JSON)
-                .header("X-Empresa-Id", "1")
-                .header("x-Usuario-Id", "1")
                 .content(objectMapper.writeValueAsString(invalido)))
                 .andExpect(status().isBadRequest());
     }
@@ -95,8 +99,7 @@ class TicketComentarioControllerTest {
         Mockito.when(comentarioService.listarComentariosPorTicket(1L, 1L))
                 .thenReturn(List.of(comentarioResponse));
 
-        mockMvc.perform(get("/api/comentarios/ticket/1")
-                .header("X-Empresa-Id", "1"))
+        mockMvc.perform(get("/api/comentarios/ticket/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].mensaje").value("Hola, necesito ayuda"))
                 .andExpect(jsonPath("$[0].usuarioNombre").value("Juan Perez"));

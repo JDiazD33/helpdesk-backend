@@ -105,13 +105,7 @@ class EmpresaServiceImplTest {
 
     @Test
     void listarEmpresasActivas_debeRetornarSoloActivas() {
-        Empresa inactiva = Empresa.builder()
-                .id(2L)
-                .nombre("Inactiva SA")
-                .activo(false)
-                .build();
-
-        when(empresaRepository.findAll()).thenReturn(List.of(empresa, inactiva));
+        when(empresaRepository.listarEmpresasActivas()).thenReturn(List.of(empresa));
 
         List<EmpresaResponseDTO> resultado = empresaService.listarEmpresasActivas();
 
@@ -157,7 +151,6 @@ class EmpresaServiceImplTest {
     @Test
     void actualizarEmpresa_correoDuplicado_lanzaExcepcion() {
         when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
-        when(empresaRepository.existsByRuc("12345678901")).thenReturn(false);
         when(empresaRepository.existsByCorreoContacto("nuevo@tech.com")).thenReturn(true);
 
         EmpresaRequestDTO nuevoRequest = EmpresaRequestDTO.builder()
@@ -206,7 +199,6 @@ class EmpresaServiceImplTest {
     @Test
     void actualizarEmpresa_correoDiferenteNoDuplicado_debeActualizar() {
         when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
-        when(empresaRepository.existsByRuc("12345678901")).thenReturn(false);
         when(empresaRepository.existsByCorreoContacto("nuevo@tech.com")).thenReturn(false);
         when(empresaRepository.save(any(Empresa.class))).thenReturn(empresa);
 

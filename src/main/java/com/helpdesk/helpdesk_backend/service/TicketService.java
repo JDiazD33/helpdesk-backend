@@ -20,17 +20,20 @@ public interface TicketService {
     // Busca ticket por id, usa optional para evitar errores de inexistencia
     Optional<Ticket> buscarPorId(Long id);
 
+    // Busca ticket validando que pertenezca a la empresa del tenant (multi-tenant safe)
+    Optional<Ticket> buscarPorIdAndEmpresa(Long id, Long empresaId);
+
     // Crear nuevo ticket
     Ticket guardar(Ticket ticket);
 
     // Crear ticket y comentario inicial en una sola transacción
     Ticket guardarConComentarioInicial(Ticket ticket, String mensajeInicial, Long usuarioComentarioId);
 
-    // Actualizar ticket existente
-    Ticket actualizar(Long id, Ticket ticket);
+    // Actualizar ticket existente, restringido a la empresa del tenant
+    Ticket actualizar(Long id, Long empresaId, Ticket ticket);
 
-    // Eliminar ticket por ID
-    void eliminar(Long id);
+    // Eliminar ticket por ID, restringido a la empresa del tenant
+    void eliminar(Long id, Long empresaId);
 
     // Filtros
     // Busca ticket por código, usa optional para evitar errores de inexistencia
@@ -93,9 +96,9 @@ public interface TicketService {
 
     List<Ticket> listarActualizadosRecientemente(Long empresaId, int dias);
 
-    Ticket cambiarEstado(Long id, CambiarEstadoRequestDTO request);
+    Ticket cambiarEstado(Long id, Long empresaId, CambiarEstadoRequestDTO request);
 
-    Ticket asignarAgente(Long id, Long agenteId);
+    Ticket asignarAgente(Long id, Long empresaId, Long agenteId);
 
-    Ticket guardarCierre(Long id, CierreRequestDTO request);
+    Ticket guardarCierre(Long id, Long empresaId, CierreRequestDTO request);
 }

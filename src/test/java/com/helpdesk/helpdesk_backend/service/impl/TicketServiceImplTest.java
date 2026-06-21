@@ -1,5 +1,7 @@
 package com.helpdesk.helpdesk_backend.service.impl;
 
+import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CierreRequestDTO;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.*;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
@@ -201,33 +203,51 @@ class TicketServiceImplTest {
 
     @Test
     void actualizar_debeActualizarYRetornarTicket() {
-        when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
         when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
 
         Ticket actualizado = Ticket.builder()
                 .titulo("Título actualizado")
                 .descripcion("Nueva descripción")
-                .estado(EstadoTicket.EN_PROGRESO)
                 .prioridad(PrioridadTicket.ALTA)
                 .build();
 
-        Ticket resultado = ticketService.actualizar(1L, actualizado);
+        Ticket resultado = ticketService.actualizar(1L, 1L, actualizado);
 
         assertNotNull(resultado);
         verify(ticketRepository).save(any(Ticket.class));
     }
 
     @Test
+    void actualizar_enviaEstadoEnBody_seIgnora() {
+        // Estado original ABIERTO
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
+
+        // El body intenta cambiar a CERRADO — debe ignorarse
+        Ticket intento = Ticket.builder()
+                .titulo("Nuevo título")
+                .descripcion("Nueva desc")
+                .estado(EstadoTicket.CERRADO)
+                .build();
+
+        ticketService.actualizar(1L, 1L, intento);
+
+        // El estado NO se modifica
+        assertEquals(EstadoTicket.ABIERTO, ticket.getEstado());
+    }
+
+    @Test
     void actualizar_noExiste_lanzaExcepcion() {
-        when(ticketRepository.findById(99L)).thenReturn(Optional.empty());
+        when(ticketRepository.findByIdAndEmpresaId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
-                ticketService.actualizar(99L, ticket));
+                ticketService.actualizar(99L, 1L, ticket));
     }
 
     @Test
     void actualizar_sinEstadoNiPrioridad_noSobreescribe() {
-        when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
         when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
 
         Ticket actualizado = Ticket.builder()
@@ -235,7 +255,7 @@ class TicketServiceImplTest {
                 .descripcion("desc")
                 .build(); // sin estado ni prioridad
 
-        ticketService.actualizar(1L, actualizado);
+        ticketService.actualizar(1L, 1L, actualizado);
 
         assertEquals(EstadoTicket.ABIERTO, ticket.getEstado());
         assertEquals(PrioridadTicket.ALTA, ticket.getPrioridad());
@@ -243,11 +263,9 @@ class TicketServiceImplTest {
 
     @Test
     void actualizar_conReferencias_debeResolverlas() {
-        when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
         when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
-        when(usuarioRepository.getReferenceById(1L)).thenReturn(cliente);
         when(usuarioRepository.getReferenceById(2L)).thenReturn(agente);
-        when(empresaRepository.getReferenceById(1L)).thenReturn(empresa);
         when(categoriaRepository.getReferenceById(1L)).thenReturn(categoria);
         when(problemaRepository.getReferenceById(1L)).thenReturn(problema);
 
@@ -261,19 +279,21 @@ class TicketServiceImplTest {
                 .problema(problema)
                 .build();
 
-        ticketService.actualizar(1L, actualizado);
+        ticketService.actualizar(1L, 1L, actualizado);
 
-        verify(usuarioRepository, atLeastOnce()).getReferenceById(anyLong());
-        verify(empresaRepository).getReferenceById(1L);
+        verify(usuarioRepository).getReferenceById(2L);
         verify(categoriaRepository).getReferenceById(1L);
         verify(problemaRepository).getReferenceById(1L);
+        // empresa y cliente son inmutables en actualizar: no se re-resuelven
+        verify(empresaRepository, never()).getReferenceById(anyLong());
+        verify(usuarioRepository, never()).getReferenceById(1L);
     }
 
     @Test
     void eliminar_debeEliminarTicket() {
-        when(ticketRepository.existsById(1L)).thenReturn(true);
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
 
-        ticketService.eliminar(1L);
+        ticketService.eliminar(1L, 1L);
 
         verify(comentarioRepository).deleteByTicketId(1L);
         verify(ticketRepository).deleteById(1L);
@@ -281,10 +301,10 @@ class TicketServiceImplTest {
 
     @Test
     void eliminar_noExiste_lanzaExcepcion() {
-        when(ticketRepository.existsById(99L)).thenReturn(false);
+        when(ticketRepository.findByIdAndEmpresaId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
-                ticketService.eliminar(99L));
+                ticketService.eliminar(99L, 1L));
     }
 
     @Test
@@ -408,5 +428,110 @@ class TicketServiceImplTest {
         when(ticketRepository.findPrioridadAltaPorEmpresa(1L)).thenReturn(List.of(ticket));
 
         assertEquals(1, ticketService.listarPrioridadAltaPorEmpresa(1L).size());
+    }
+
+    // ── Tests de la máquina de estados (A5) ──
+
+    @Test
+    void cambiarEstado_transicionValida_AbiertoAEnProgreso_debeCambiar() {
+        CambiarEstadoRequestDTO request = new CambiarEstadoRequestDTO();
+        request.setEstado(EstadoTicket.EN_PROGRESO);
+
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
+
+        Ticket resultado = ticketService.cambiarEstado(1L, 1L, request);
+
+        assertEquals(EstadoTicket.EN_PROGRESO, resultado.getEstado());
+        verify(ticketRepository).save(any(Ticket.class));
+    }
+
+    @Test
+    void cambiarEstado_transicionInvalida_CerradoAAbierto_lanzaExcepcion() {
+        ticket.setEstado(EstadoTicket.CERRADO);
+
+        CambiarEstadoRequestDTO request = new CambiarEstadoRequestDTO();
+        request.setEstado(EstadoTicket.ABIERTO);
+
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ticketService.cambiarEstado(1L, 1L, request));
+
+        verify(ticketRepository, never()).save(any());
+    }
+
+    @Test
+    void cambiarEstado_transicionInvalida_ResueltoAAbierto_lanzaExcepcion() {
+        ticket.setEstado(EstadoTicket.RESUELTO);
+
+        CambiarEstadoRequestDTO request = new CambiarEstadoRequestDTO();
+        request.setEstado(EstadoTicket.ABIERTO);
+
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ticketService.cambiarEstado(1L, 1L, request));
+
+        verify(ticketRepository, never()).save(any());
+    }
+
+    @Test
+    void cambiarEstado_mismoEstado_sePermiteNoOp() {
+        // ticket ya está ABIERTO, request pide ABIERTO
+        CambiarEstadoRequestDTO request = new CambiarEstadoRequestDTO();
+        request.setEstado(EstadoTicket.ABIERTO);
+
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
+
+        assertDoesNotThrow(() -> ticketService.cambiarEstado(1L, 1L, request));
+        verify(ticketRepository).save(any(Ticket.class));
+        // No genera comentario del sistema en no-op
+        verify(comentarioRepository, never()).save(any());
+    }
+
+    @Test
+    void cambiarEstado_cerradoRequiereJustificacion() {
+        CambiarEstadoRequestDTO request = new CambiarEstadoRequestDTO();
+        request.setEstado(EstadoTicket.CERRADO);
+        // sin justificacionCierre
+
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ticketService.cambiarEstado(1L, 1L, request));
+    }
+
+    @Test
+    void guardarCierre_desdeAbierto_debeFuncionar() {
+        ticket.setEstado(EstadoTicket.ABIERTO);
+
+        CierreRequestDTO request = new CierreRequestDTO();
+        request.setJustificacionCierre("Resuelto correctamente");
+        request.setUsuarioId(1L);
+
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
+
+        Ticket resultado = ticketService.guardarCierre(1L, 1L, request);
+
+        assertEquals(EstadoTicket.RESUELTO, resultado.getEstado());
+    }
+
+    @Test
+    void guardarCierre_desdeCerrado_lanzaExcepcion() {
+        ticket.setEstado(EstadoTicket.CERRADO);
+
+        CierreRequestDTO request = new CierreRequestDTO();
+        request.setJustificacionCierre("Intento de cierre");
+        request.setUsuarioId(1L);
+
+        when(ticketRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(ticket));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ticketService.guardarCierre(1L, 1L, request));
+
+        verify(ticketRepository, never()).save(any());
     }
 }

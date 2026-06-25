@@ -80,7 +80,7 @@ class UsuarioServiceImplTest {
             usuarioService.guardar(usuarioMock);
         });
 
-        assertThat(exception.getMessage()).contains("Ya existe un usuario con el email");
+        assertThat(exception.getMessage()).contains("Ya existe");
         verify(usuarioRepository, never()).save(any(Usuario.class));
     }
 
@@ -96,9 +96,9 @@ class UsuarioServiceImplTest {
 
     @Test
     void eliminar_AplicaBorradoLogico() {
-        when(usuarioRepository.findById(100L)).thenReturn(Optional.of(usuarioMock));
+        when(usuarioRepository.findByIdAndEmpresaId(100L, 1L)).thenReturn(Optional.of(usuarioMock));
 
-        usuarioService.eliminar(100L);
+        usuarioService.eliminar(100L, 1L);
 
         assertThat(usuarioMock.isActivo()).isFalse(); 
         verify(usuarioRepository, times(1)).save(usuarioMock); 

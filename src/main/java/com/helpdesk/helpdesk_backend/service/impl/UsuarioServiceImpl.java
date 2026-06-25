@@ -3,6 +3,7 @@ package com.helpdesk.helpdesk_backend.service.impl;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import com.helpdesk.helpdesk_backend.exception.DuplicateResourceException;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.Usuario;
 import com.helpdesk.helpdesk_backend.repository.UsuarioRepository;
+import com.helpdesk.helpdesk_backend.security.SecurityUtils;
 import com.helpdesk.helpdesk_backend.service.UsuarioService;
 
 @Service
@@ -46,6 +48,19 @@ public class UsuarioServiceImpl implements UsuarioService{
     }
 
     /**
+     * Busca un usuario validando que pertenezca a la empresa del tenant.
+     * El ADMIN_OWNER puede consultar usuarios de cualquier empresa.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Usuario> buscarPorIdAndEmpresa(Long id, Long empresaId) {
+        if (SecurityUtils.isAdminOwner()) {
+            return usuarioRepository.findById(id);
+        }
+        return usuarioRepository.findByIdAndEmpresaId(id, empresaId);
+    }
+
+    /**
      * Guarda un nuevo usuario validando existencia de email.
      * Encripta la contraseña con BCrypt antes de persistir.
      */
@@ -60,16 +75,23 @@ public class UsuarioServiceImpl implements UsuarioService{
     }
 
     /**
-     * Actualiza un usuario existente.
+     * Actualiza un usuario existente, restringido al tenant del JWT.
+     * - NO permite cambiar la empresa del usuario (se conserva la del registro original).
+     * - NO permite asignar el rol ADMIN_OWNER (rol reservado del sistema).
      * Solo encripta la contraseña si se envía una nueva.
      */
     @Override
-    public Usuario actualizar(Long id, Usuario usuario) {
-        Usuario usuarioExistente = usuarioRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
+    public Usuario actualizar(Long id, Long empresaId, Usuario usuario) {
+        Usuario usuarioExistente = obtenerUsuarioDeTenant(id, empresaId);
 
         if (!usuarioExistente.getEmail().equals(usuario.getEmail()) && usuarioRepository.existsByEmail(usuario.getEmail())) {
             throw new DuplicateResourceException("Ya existe otro usuario con el email: " + usuario.getEmail());
+        }
+
+        // Bloquear escalación: nadie puede asignar el rol ADMIN_OWNER por esta vía.
+        if (usuario.getRol() != null
+                && RolConstants.ADMIN_OWNER.equals(usuario.getRol().getNombre())) {
+            throw new AccessDeniedException("No está permitido asignar el rol " + RolConstants.ADMIN_OWNER);
         }
 
         usuarioExistente.setNombres(usuario.getNombres());
@@ -81,21 +103,35 @@ public class UsuarioServiceImpl implements UsuarioService{
         }
         usuarioExistente.setTelefono(usuario.getTelefono());
         usuarioExistente.setActivo(usuario.isActivo());
-        usuarioExistente.setEmpresa(usuario.getEmpresa());
+        // La empresa es inmutable: se conserva la del registro original.
         usuarioExistente.setRol(usuario.getRol());
 
         return usuarioRepository.save(usuarioExistente);
     }
 
     /**
-     * Borrado lógico: desactiva el usuario sin eliminarlo de la BD.
+     * Borrado lógico: desactiva el usuario sin eliminarlo de la BD,
+     * restringido a la empresa del tenant.
      */
     @Override
-    public void eliminar(Long id) {
-        Usuario usuario = usuarioRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
+    public void eliminar(Long id, Long empresaId) {
+        Usuario usuario = obtenerUsuarioDeTenant(id, empresaId);
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
+    }
+
+    /**
+     * Carga un usuario validando que pertenezca a la empresa del tenant.
+     * El ADMIN_OWNER puede operar sobre usuarios de cualquier empresa.
+     * Devuelve 404 (no 403) para no filtrar la existencia del recurso entre tenants.
+     */
+    private Usuario obtenerUsuarioDeTenant(Long id, Long empresaId) {
+        if (SecurityUtils.isAdminOwner()) {
+            return usuarioRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
+        }
+        return usuarioRepository.findByIdAndEmpresaId(id, empresaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
     }
 
     /**

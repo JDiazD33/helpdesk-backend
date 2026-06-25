@@ -102,6 +102,10 @@ public class TicketServiceImpl implements TicketService{
     @Override
     @Transactional(readOnly = true)
     public Optional<Ticket> buscarPorIdAndEmpresa(Long id, Long empresaId) {
+        // El ADMIN_OWNER puede consultar tickets de cualquier empresa.
+        if (SecurityUtils.isAdminOwner()) {
+            return ticketRepository.findById(id);
+        }
         return ticketRepository.findByIdAndEmpresaId(id, empresaId);
     }
 
@@ -379,9 +383,13 @@ public class TicketServiceImpl implements TicketService{
     @Override
     public Ticket asignarAgente(Long id, Long empresaId, Long agenteId) {
         Ticket ticket = obtenerTicketDeTenant(id, empresaId);
-        Usuario agente = usuarioRepository.findByIdAndEmpresaId(agenteId, empresaId)
+        // El agente debe pertenecer a la MISMA empresa del ticket (no a la del JWT).
+        // Así el owner puede asignar agentes a tickets de cualquier empresa,
+        // y siempre respeta la consistencia tenant del propio ticket.
+        Long empresaDelTicket = ticket.getEmpresa().getId();
+        Usuario agente = usuarioRepository.findByIdAndEmpresaId(agenteId, empresaDelTicket)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Agente no encontrado o no pertenece a la empresa con id: " + agenteId));
+                        "Agente no encontrado o no pertenece a la empresa del ticket"));
         ticket.setAgenteAsignado(agente);
         Ticket guardado = ticketRepository.save(ticket);
         String texto = "Ticket asignado a " + agente.getNombres() + " " + agente.getApellidos();
@@ -442,9 +450,14 @@ public class TicketServiceImpl implements TicketService{
 
     /**
      * Carga un ticket validando que pertenezca a la empresa del tenant.
+     * El ADMIN_OWNER (super-admin del SaaS) puede acceder a tickets de cualquier empresa.
      * Devuelve 404 (no 403) para no filtrar la existencia del recurso entre tenants.
      */
     private Ticket obtenerTicketDeTenant(Long id, Long empresaId) {
+        if (SecurityUtils.isAdminOwner()) {
+            return ticketRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
+        }
         return ticketRepository.findByIdAndEmpresaId(id, empresaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + id));
     }

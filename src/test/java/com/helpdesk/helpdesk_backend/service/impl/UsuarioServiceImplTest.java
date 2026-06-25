@@ -108,7 +108,7 @@ class UsuarioServiceImplTest {
 
     @Test
     void actualizar_debeActualizarYRetornarUsuario() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(usuario));
         when(passwordEncoder.encode("nuevaPass")).thenReturn("hash-nueva");
         when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
 
@@ -122,7 +122,7 @@ class UsuarioServiceImplTest {
                 .rol(rol)
                 .build();
 
-        Usuario resultado = usuarioService.actualizar(1L, actualizado);
+        Usuario resultado = usuarioService.actualizar(1L, 1L, actualizado);
 
         assertNotNull(resultado);
         verify(passwordEncoder).encode("nuevaPass");
@@ -131,7 +131,7 @@ class UsuarioServiceImplTest {
 
     @Test
     void actualizar_sinPassword_noEncripta() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
 
         Usuario actualizado = Usuario.builder()
@@ -144,14 +144,14 @@ class UsuarioServiceImplTest {
                 .rol(rol)
                 .build();
 
-        usuarioService.actualizar(1L, actualizado);
+        usuarioService.actualizar(1L, 1L, actualizado);
 
         verify(passwordEncoder, never()).encode(any());
     }
 
     @Test
     void actualizar_passwordNull_noEncripta() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
 
         Usuario actualizado = Usuario.builder()
@@ -164,22 +164,22 @@ class UsuarioServiceImplTest {
                 .rol(rol)
                 .build();
 
-        usuarioService.actualizar(1L, actualizado);
+        usuarioService.actualizar(1L, 1L, actualizado);
 
         verify(passwordEncoder, never()).encode(any());
     }
 
     @Test
     void actualizar_noExiste_lanzaExcepcion() {
-        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdAndEmpresaId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
-                usuarioService.actualizar(99L, usuario));
+                usuarioService.actualizar(99L, 1L, usuario));
     }
 
     @Test
     void actualizar_emailDuplicado_lanzaExcepcion() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.existsByEmail("nuevo@test.com")).thenReturn(true);
 
         Usuario actualizado = Usuario.builder()
@@ -190,12 +190,12 @@ class UsuarioServiceImplTest {
                 .build();
 
         assertThrows(DuplicateResourceException.class, () ->
-                usuarioService.actualizar(1L, actualizado));
+                usuarioService.actualizar(1L, 1L, actualizado));
     }
 
     @Test
     void actualizar_emailDiferenteNoDuplicado_debeActualizar() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.existsByEmail("nuevo@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
@@ -210,7 +210,7 @@ class UsuarioServiceImplTest {
                 .rol(rol)
                 .build();
 
-        Usuario resultado = usuarioService.actualizar(1L, actualizado);
+        Usuario resultado = usuarioService.actualizar(1L, 1L, actualizado);
 
         assertNotNull(resultado);
         verify(usuarioRepository).existsByEmail("nuevo@test.com");
@@ -218,9 +218,9 @@ class UsuarioServiceImplTest {
 
     @Test
     void eliminar_debeDesactivarUsuario() {
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndEmpresaId(1L, 1L)).thenReturn(Optional.of(usuario));
 
-        usuarioService.eliminar(1L);
+        usuarioService.eliminar(1L, 1L);
 
         assertFalse(usuario.isActivo());
         verify(usuarioRepository).save(usuario);
@@ -228,10 +228,10 @@ class UsuarioServiceImplTest {
 
     @Test
     void eliminar_noExiste_lanzaExcepcion() {
-        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdAndEmpresaId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
-                usuarioService.eliminar(99L));
+                usuarioService.eliminar(99L, 1L));
     }
 
     @Test

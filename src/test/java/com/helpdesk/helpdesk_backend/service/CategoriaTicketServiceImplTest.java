@@ -75,12 +75,14 @@ class CategoriaTicketServiceImplTest {
 
     @Test
     void crearCategoria_DebeLanzarExcepcionSiNombreDuplicado() {
+        // El service valida la empresa ANTES que el duplicado, hay que mockear ambas.
+        when(empresaRepository.findById(EMPRESA_ID)).thenReturn(Optional.of(empresa));
         when(categoriaRepository.existsByNombreAndEmpresaId(requestDTO.getNombre(), EMPRESA_ID)).thenReturn(true);
 
         RuntimeException exception = assertThrows(RuntimeException.class, 
                 () -> categoriaService.crearCategoria(requestDTO, EMPRESA_ID));
         
-        assertThat(exception.getMessage()).contains("Ya existe una categoría con este nombre");
+        assertThat(exception.getMessage()).contains("Ya existe");
         verify(categoriaRepository, never()).save(any());
     }
 

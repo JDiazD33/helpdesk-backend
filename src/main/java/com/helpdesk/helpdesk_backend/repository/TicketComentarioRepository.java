@@ -28,16 +28,18 @@ public interface TicketComentarioRepository extends JpaRepository<TicketComentar
         /**
          * Listar comentarios realizados por un usuario,
          * ordenados del más reciente al más antiguo.
-         * (Consulta por usuario específico, no por tenant: no se excluye owner.)
+         * Filtra por empresa del tenant (NULL = vista global del owner, sin filtro).
          */
         @Query("""
                         SELECT c FROM TicketComentario c
                         JOIN FETCH c.usuario
-                        JOIN FETCH c.ticket
+                        JOIN FETCH c.ticket t
                         WHERE c.usuario.id = :usuarioId
+                        AND (:empresaId IS NULL OR t.empresa.id = :empresaId)
                         ORDER BY c.fechaEnvio DESC
                         """)
-        List<TicketComentario> listarPorUsuario(@Param("usuarioId") Long usuarioId);
+        List<TicketComentario> listarPorUsuario(@Param("usuarioId") Long usuarioId,
+                        @Param("empresaId") Long empresaId);
 
         /**
          * Obtener comentarios de un ticket en un rango de fechas.
@@ -55,15 +57,18 @@ public interface TicketComentarioRepository extends JpaRepository<TicketComentar
                         @Param("fin") LocalDateTime fin);
 
         /**
-         * Buscar comentarios por texto dentro del mensaje.
-         * Búsqueda dinámica tipo buscador.
+         * Buscar comentarios por texto dentro del mensaje, dentro del tenant.
+         * Filtra por empresa del tenant (NULL = vista global del owner, sin filtro).
          */
         @Query("""
                         SELECT c FROM TicketComentario c
+                        JOIN c.ticket t
                         WHERE LOWER(c.mensaje) LIKE LOWER(CONCAT('%', :texto, '%'))
+                        AND (:empresaId IS NULL OR t.empresa.id = :empresaId)
                         ORDER BY c.fechaEnvio DESC
                         """)
-        List<TicketComentario> buscarPorTexto(@Param("texto") String texto);
+        List<TicketComentario> buscarPorTexto(@Param("texto") String texto,
+                        @Param("empresaId") Long empresaId);
 
         /**
          * Contar comentarios realizados por cada usuario dentro de un tenant,

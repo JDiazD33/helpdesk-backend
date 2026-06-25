@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
 import com.helpdesk.helpdesk_backend.dto.PageResponse;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
 
 import jakarta.validation.Valid;
@@ -26,19 +27,23 @@ import jakarta.validation.Valid;
 public class CategoriaTicketController {
 
     private final CategoriaTicketService categoriaTicketService;
+    private final TenantSecurity tenant;
 
-    public CategoriaTicketController(CategoriaTicketService categoriaTicketService) {
+    public CategoriaTicketController(CategoriaTicketService categoriaTicketService, TenantSecurity tenant) {
         this.categoriaTicketService = categoriaTicketService;
+        this.tenant = tenant;
     }
 
     @GetMapping
     public ResponseEntity<List<CategoriaResponseDTO>> listarTodos(@RequestParam Long empresaId) {
-        return ResponseEntity.ok(categoriaTicketService.listarTodas(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(categoriaTicketService.listarTodas(resolvedId));
     }
 
     @GetMapping("/empresa/{empresaId}")
     public ResponseEntity<List<CategoriaResponseDTO>> listarPorEmpresa(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(categoriaTicketService.listarTodas(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(categoriaTicketService.listarTodas(resolvedId));
     }
 
     @GetMapping("/todas")
@@ -52,7 +57,8 @@ public class CategoriaTicketController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "5") int limit,
             @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(categoriaTicketService.buscarPaginado(empresaId, page, limit, search));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(categoriaTicketService.buscarPaginado(resolvedId, page, limit, search));
     }
 
     @GetMapping("/paginado/todas")
@@ -65,29 +71,34 @@ public class CategoriaTicketController {
 
     @GetMapping("/activas")
     public ResponseEntity<List<CategoriaResponseDTO>> listarPorActiva(@RequestParam Long empresaId) {
-        return ResponseEntity.ok(categoriaTicketService.listarCategoriasActivas(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(categoriaTicketService.listarCategoriasActivas(resolvedId));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<CategoriaResponseDTO> obtenerPorId(
             @PathVariable Long id,
             @RequestParam Long empresaId) {
-        return ResponseEntity.ok(categoriaTicketService.obtenerPorId(id, empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(categoriaTicketService.obtenerPorId(id, resolvedId));
     }
 
     @PostMapping
     public ResponseEntity<CategoriaResponseDTO> guardar(@Valid @RequestBody CategoriaRequestDTO requestDTO, @RequestParam Long empresaId) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(categoriaTicketService.crearCategoria(requestDTO, empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(categoriaTicketService.crearCategoria(requestDTO, resolvedId));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<CategoriaResponseDTO> actualizar(@PathVariable Long id, @Valid @RequestBody CategoriaRequestDTO requestDTO, @RequestParam Long empresaId) {
-        return ResponseEntity.ok(categoriaTicketService.actualizarCategoria(id, requestDTO, empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(categoriaTicketService.actualizarCategoria(id, requestDTO, resolvedId));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, @RequestParam Long empresaId) {
-        categoriaTicketService.eliminarCategoria(id, empresaId);
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        categoriaTicketService.eliminarCategoria(id, resolvedId);
         return ResponseEntity.noContent().build();
     }
 }

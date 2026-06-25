@@ -71,16 +71,16 @@ public class TicketComentarioServiceImpl implements TicketComentarioService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ComentarioResponseDTO> listarPorUsuario(Long usuarioId) {
-        return comentarioRepository.listarPorUsuario(usuarioId).stream()
+    public List<ComentarioResponseDTO> listarPorUsuario(Long usuarioId, Long empresaIdContexto) {
+        return comentarioRepository.listarPorUsuario(usuarioId, empresaIdContexto).stream()
                 .map(comentarioMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<ComentarioResponseDTO> buscarPorTexto(String texto) {
-        return comentarioRepository.buscarPorTexto(texto).stream()
+    public List<ComentarioResponseDTO> buscarPorTexto(String texto, Long empresaIdContexto) {
+        return comentarioRepository.buscarPorTexto(texto, empresaIdContexto).stream()
                 .map(comentarioMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }

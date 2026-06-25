@@ -5,6 +5,7 @@ import com.helpdesk.helpdesk_backend.dto.ProblemaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
 import com.helpdesk.helpdesk_backend.security.CustomUserDetailsService;
 import com.helpdesk.helpdesk_backend.security.JwtUtil;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.ProblemaTicketService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,9 @@ class ProblemaTicketControllerTest {
     @MockBean
     private JwtUtil jwtUtil;
 
+    @MockBean
+    private TenantSecurity tenant;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -60,6 +64,11 @@ class ProblemaTicketControllerTest {
         problemaRequest.setNombre("Falla de red");
         problemaRequest.setDescripcion("Problemas de conectividad");
         problemaRequest.setCategoriaId(1L);
+
+        // Tenant simulado: empresa 1 para todos los tests.
+        Mockito.lenient().when(tenant.resolveEmpresaId(1L)).thenReturn(1L);
+        Mockito.lenient().when(tenant.resolveEmpresaId(null)).thenReturn(1L);
+        Mockito.lenient().when(tenant.isAdminOwner()).thenReturn(false);
     }
 
     @Test

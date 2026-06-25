@@ -5,6 +5,7 @@ import com.helpdesk.helpdesk_backend.dto.CategoriaRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
 import com.helpdesk.helpdesk_backend.security.CustomUserDetailsService;
 import com.helpdesk.helpdesk_backend.security.JwtUtil;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,9 @@ class CategoriaTicketControllerTest {
     @MockBean
     private JwtUtil jwtUtil;
 
+    @MockBean
+    private TenantSecurity tenant;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -57,6 +61,9 @@ class CategoriaTicketControllerTest {
         categoriaRequest = new CategoriaRequestDTO();
         categoriaRequest.setNombre("Soporte Técnico");
         categoriaRequest.setDescripcion("Problemas técnicos");
+
+        // Tenant simulado: empresa 1 para todos los tests.
+        Mockito.lenient().when(tenant.resolveEmpresaId(1L)).thenReturn(1L);
     }
 
     @Test

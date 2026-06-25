@@ -3,6 +3,7 @@ package com.helpdesk.helpdesk_backend.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.helpdesk.helpdesk_backend.model.Empresa;
+import com.helpdesk.helpdesk_backend.model.Rol;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.Usuario;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
@@ -31,8 +32,24 @@ public class TicketRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        empresa = Empresa.builder().nombre("Empresa Alpha").activo(true).build();
-        cliente = Usuario.builder().nombres("Juan").email("juan@alpha.com").build();
+        empresa = Empresa.builder()
+                .nombre("Empresa Alpha")
+                .ruc("20123456789")
+                .correoContacto("contacto@alpha.com")
+                .telefonoContacto("987654321")
+                .activo(true)
+                .build();
+        Rol rol = Rol.builder().nombre("CLIENTE").build();
+        entityManager.persist(rol);
+        cliente = Usuario.builder()
+                .nombres("Juan")
+                .apellidos("Perez")
+                .email("juan@alpha.com")
+                .password("123456")
+                .empresa(empresa)
+                .rol(rol)
+                .activo(true)
+                .build();
 
         entityManager.persist(empresa);
         entityManager.persist(cliente);

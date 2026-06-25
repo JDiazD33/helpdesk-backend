@@ -53,19 +53,22 @@ public class TicketComentarioController {
     @GetMapping("/usuario/{usuarioId}")
     @Operation(summary = "Listar comentarios de un usuario")
     public ResponseEntity<List<ComentarioResponseDTO>> listarPorUsuario(@PathVariable Long usuarioId) {
-        return ResponseEntity.ok(comentarioService.listarPorUsuario(usuarioId));
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(comentarioService.listarPorUsuario(usuarioId, empresaId));
     }
 
     @GetMapping("/buscar")
     @Operation(summary = "Buscar comentarios por texto")
     public ResponseEntity<List<ComentarioResponseDTO>> buscarPorTexto(@RequestParam String texto) {
-        return ResponseEntity.ok(comentarioService.buscarPorTexto(texto));
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(comentarioService.buscarPorTexto(texto, empresaId));
     }
 
     @GetMapping("/ranking-usuarios")
     @Operation(summary = "Ranking de usuarios con mas comentarios")
     public ResponseEntity<List<Map<String, Object>>> rankingUsuarios(@RequestParam(required = false) Long empresaId) {
-        return ResponseEntity.ok(comentarioService.rankingUsuariosComentarios(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(comentarioService.rankingUsuariosComentarios(resolvedId));
     }
 
     @GetMapping("/empresa/{empresaId}/recientes")
@@ -73,6 +76,7 @@ public class TicketComentarioController {
     public ResponseEntity<List<ComentarioResponseDTO>> comentariosRecientes(
             @PathVariable Long empresaId,
             @RequestParam(defaultValue = "7") int dias) {
-        return ResponseEntity.ok(comentarioService.comentariosRecientesEmpresa(empresaId, dias));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(comentarioService.comentariosRecientesEmpresa(resolvedId, dias));
     }
 }

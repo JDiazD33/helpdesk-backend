@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.UsuarioRolDTO;
 import com.helpdesk.helpdesk_backend.model.Usuario;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.UsuarioService;
 
 import jakarta.validation.Valid;
@@ -25,9 +26,11 @@ import jakarta.validation.Valid;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final TenantSecurity tenant;
 
-    public UsuarioController(UsuarioService usuarioService) {
+    public UsuarioController(UsuarioService usuarioService, TenantSecurity tenant) {
         this.usuarioService = usuarioService;
+        this.tenant = tenant;
     }
 
     @GetMapping
@@ -35,12 +38,14 @@ public class UsuarioController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) List<Long> roles,
             @RequestParam(required = false) Long empresaId) {
-        return ResponseEntity.ok(usuarioService.listarConFiltros(empresaId, search, roles));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.listarConFiltros(resolvedId, search, roles));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Usuario> buscarPorId(@PathVariable Long id) {
-        return usuarioService.buscarPorId(id)
+        Long empresaId = tenant.getEmpresaId();
+        return usuarioService.buscarPorIdAndEmpresa(id, empresaId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -54,7 +59,8 @@ public class UsuarioController {
 
     @GetMapping("/empresa/{empresaId}")
     public ResponseEntity<List<Usuario>> listarPorEmpresa(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(usuarioService.listarPorEmpresa(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.listarPorEmpresa(resolvedId));
     }
 
     @GetMapping("/rol/{rolId}")
@@ -73,14 +79,16 @@ public class UsuarioController {
     public ResponseEntity<List<Usuario>> listarActivosPorEmpresa(
             @PathVariable Long empresaId,
             @RequestParam(defaultValue = "true") boolean activo) {
-        return ResponseEntity.ok(usuarioService.listarActivosPorEmpresa(empresaId, activo));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.listarActivosPorEmpresa(resolvedId, activo));
     }
 
     @GetMapping("/empresa/{empresaId}/rol/{rolId}")
     public ResponseEntity<List<Usuario>> listarPorEmpresaYRol(
             @PathVariable Long empresaId,
             @PathVariable Long rolId) {
-        return ResponseEntity.ok(usuarioService.listarPorEmpresaYRol(empresaId, rolId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.listarPorEmpresaYRol(resolvedId, rolId));
     }
 
     // ── Endpoints con queries JPQL personalizadas ──
@@ -88,7 +96,8 @@ public class UsuarioController {
     /** Usuarios activos con datos precargados (JOIN FETCH) */
     @GetMapping("/empresa/{empresaId}/detalle")
     public ResponseEntity<List<Usuario>> listarActivosConDetalles(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(usuarioService.listarActivosPorEmpresaConDetalles(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.listarActivosPorEmpresaConDetalles(resolvedId));
     }
 
     /** Buscar usuarios por nombre o apellido */
@@ -96,17 +105,20 @@ public class UsuarioController {
     public ResponseEntity<List<Usuario>> buscarPorNombre(
             @PathVariable Long empresaId,
             @RequestParam String termino) {
-        return ResponseEntity.ok(usuarioService.buscarPorNombreOApellido(empresaId, termino));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.buscarPorNombreOApellido(resolvedId, termino));
     }
 
     @GetMapping("/conteo-rol")
     public ResponseEntity<List<UsuarioRolDTO>> contarPorRol(@RequestParam(required = false) Long empresaId) {
-        return ResponseEntity.ok(usuarioService.contarUsuariosPorRol(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.contarUsuariosPorRol(resolvedId));
     }
 
     @GetMapping("/empresa/{empresaId}/agentes")
     public ResponseEntity<List<Usuario>> listarAgentesActivos(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(usuarioService.listarAgentesActivos(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(usuarioService.listarAgentesActivos(resolvedId));
     }
 
     // ── CRUD ──
@@ -118,12 +130,14 @@ public class UsuarioController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Usuario> actualizar(@PathVariable Long id, @Valid @RequestBody Usuario usuario) {
-        return ResponseEntity.ok(usuarioService.actualizar(id, usuario));
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(usuarioService.actualizar(id, empresaId, usuario));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        usuarioService.eliminar(id);
+        Long empresaId = tenant.getEmpresaId();
+        usuarioService.eliminar(id, empresaId);
         return ResponseEntity.noContent().build();
     }
 }

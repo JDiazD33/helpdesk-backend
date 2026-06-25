@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.ReporteService;
 
 @RestController
@@ -16,9 +17,11 @@ import com.helpdesk.helpdesk_backend.service.ReporteService;
 public class ReporteController {
 
     private final ReporteService reporteService;
+    private final TenantSecurity tenant;
 
-    public ReporteController(ReporteService reporteService) {
+    public ReporteController(ReporteService reporteService, TenantSecurity tenant) {
         this.reporteService = reporteService;
+        this.tenant = tenant;
     }
 
     @GetMapping("/tickets-mes")
@@ -26,7 +29,10 @@ public class ReporteController {
             @RequestParam Long empresaId,
             @RequestParam int anio,
             @RequestParam(required = false) Integer mes) {
-        return ResponseEntity.ok(reporteService.ticketsPorMes(empresaId, anio, mes));
+        // Sanitiza el empresaId: el ADMIN_OWNER puede indicar cualquier empresa,
+        // los demás roles quedan forzados al de su JWT.
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(reporteService.ticketsPorMes(resolvedId, anio, mes));
     }
 
     @GetMapping("/tickets-mes/todas")
@@ -38,7 +44,8 @@ public class ReporteController {
 
     @GetMapping("/usuarios-activos")
     public ResponseEntity<Map<String, Object>> usuariosActivos(@RequestParam Long empresaId) {
-        return ResponseEntity.ok(reporteService.contarUsuariosActivos(empresaId));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(reporteService.contarUsuariosActivos(resolvedId));
     }
 
     @GetMapping("/usuarios-activos/todas")
@@ -50,7 +57,8 @@ public class ReporteController {
     public ResponseEntity<Map<String, Object>> dashboard(
             @RequestParam Long empresaId,
             @RequestParam(defaultValue = "2026") int anio) {
-        return ResponseEntity.ok(reporteService.dashboard(empresaId, anio));
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(reporteService.dashboard(resolvedId, anio));
     }
 
     @GetMapping("/dashboard/todas")

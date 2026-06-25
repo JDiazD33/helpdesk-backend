@@ -8,9 +8,13 @@ import com.helpdesk.helpdesk_backend.model.Usuario;
 public interface UsuarioService {
     List<Usuario> listarTodos();
     Optional<Usuario> buscarPorId(Long id);
+    // Busca usuario validando que pertenezca a la empresa del tenant (multi-tenant safe)
+    Optional<Usuario> buscarPorIdAndEmpresa(Long id, Long empresaId);
     Usuario guardar(Usuario usuario);
-    Usuario actualizar(Long id, Usuario usuario);
-    void eliminar(Long id);
+    // Actualizar restringido a la empresa del tenant; bloquea escalación a ADMIN_OWNER.
+    Usuario actualizar(Long id, Long empresaId, Usuario usuario);
+    // Eliminar (borrado lógico) restringido a la empresa del tenant.
+    void eliminar(Long id, Long empresaId);
     Optional<Usuario> buscarPorEmail(String email);
     boolean existeEmail(String email);
     List<Usuario> listarPorEmpresa(Long empresaId);

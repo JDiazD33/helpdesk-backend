@@ -47,7 +47,8 @@ class GlobalExceptionHandlerTest {
     void handleValidationErrors_DeberiaRetornar400ConErroresPorCampo() throws NoSuchMethodException {
         Method method = getClass().getDeclaredMethod("dummyMethod", String.class);
         MethodParameter methodParameter = new MethodParameter(method, 0);
-        BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "objeto");
+        // Se usa un bean con getter real para que BindingResult pueda resolver el campo "nombre".
+        BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new BeanDummy(), "objeto");
         bindingResult.rejectValue("nombre", "NotBlank", "El nombre es obligatorio");
 
         MethodArgumentNotValidException exception = new MethodArgumentNotValidException(methodParameter, bindingResult);
@@ -89,5 +90,15 @@ class GlobalExceptionHandlerTest {
     @SuppressWarnings("unused")
     private void dummyMethod(String parametro) {
         // Método auxiliar para generar MethodParameter en las pruebas
+    }
+
+    /**
+     * Bean auxiliar con getter "nombre" para que BeanPropertyBindingResult pueda
+     * resolver el campo al registrar un error de validación en las pruebas.
+     */
+    public static class BeanDummy {
+        private String nombre;
+        public String getNombre() { return nombre; }
+        public void setNombre(String nombre) { this.nombre = nombre; }
     }
 }

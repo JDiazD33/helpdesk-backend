@@ -2,6 +2,7 @@ package com.helpdesk.helpdesk_backend.controller;
 
 import com.helpdesk.helpdesk_backend.security.CustomUserDetailsService;
 import com.helpdesk.helpdesk_backend.security.JwtUtil;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.ReporteService;
 
 import org.junit.jupiter.api.Test;
@@ -35,8 +36,12 @@ class ReporteControllerTest {
     @MockBean
     private JwtUtil jwtUtil;
 
+    @MockBean
+    private TenantSecurity tenant;
+
     @Test
     void ticketsPorMes_debeRetornarLista() throws Exception {
+        Mockito.when(tenant.resolveEmpresaId(1L)).thenReturn(1L);
         Mockito.when(reporteService.ticketsPorMes(1L, 2025, null))
                 .thenReturn(List.of(
                         Map.of("mes", 1, "total", 5),
@@ -53,6 +58,7 @@ class ReporteControllerTest {
 
     @Test
     void usuariosActivos_debeRetornarMapa() throws Exception {
+        Mockito.when(tenant.resolveEmpresaId(1L)).thenReturn(1L);
         Mockito.when(reporteService.contarUsuariosActivos(1L))
                 .thenReturn(Map.of("total", 10, "admins", 2, "agentes", 3, "clientes", 5));
 

@@ -7,6 +7,7 @@ import com.helpdesk.helpdesk_backend.model.Rol;
 import com.helpdesk.helpdesk_backend.model.Usuario;
 import com.helpdesk.helpdesk_backend.security.CustomUserDetailsService;
 import com.helpdesk.helpdesk_backend.security.JwtUtil;
+import com.helpdesk.helpdesk_backend.security.TenantSecurity;
 import com.helpdesk.helpdesk_backend.service.UsuarioService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +44,9 @@ class UsuarioControllerTest {
     @MockBean
     private JwtUtil jwtUtil;
 
+    @MockBean
+    private TenantSecurity tenant;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -65,11 +69,16 @@ class UsuarioControllerTest {
                 .empresa(empresa)
                 .rol(rol)
                 .build();
+
+        // Tenant simulado: empresa 1 para todos los tests.
+        Mockito.lenient().when(tenant.getEmpresaId()).thenReturn(1L);
+        Mockito.lenient().when(tenant.resolveEmpresaId(1L)).thenReturn(1L);
+        Mockito.lenient().when(tenant.resolveEmpresaId(null)).thenReturn(1L);
     }
 
     @Test
     void listarTodos_debeRetornarLista() throws Exception {
-        Mockito.when(usuarioService.listarTodos()).thenReturn(List.of(usuario));
+        Mockito.when(usuarioService.listarConFiltros(1L, null, null)).thenReturn(List.of(usuario));
 
         mockMvc.perform(get("/api/usuarios"))
                 .andExpect(status().isOk())
@@ -78,7 +87,7 @@ class UsuarioControllerTest {
 
     @Test
     void buscarPorId_debeRetornarUsuario() throws Exception {
-        Mockito.when(usuarioService.buscarPorId(1L)).thenReturn(Optional.of(usuario));
+        Mockito.when(usuarioService.buscarPorIdAndEmpresa(1L, 1L)).thenReturn(Optional.of(usuario));
 
         mockMvc.perform(get("/api/usuarios/1"))
                 .andExpect(status().isOk())
@@ -87,7 +96,7 @@ class UsuarioControllerTest {
 
     @Test
     void buscarPorId_noExiste_debeRetornar404() throws Exception {
-        Mockito.when(usuarioService.buscarPorId(99L)).thenReturn(Optional.empty());
+        Mockito.when(usuarioService.buscarPorIdAndEmpresa(99L, 1L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/usuarios/99"))
                 .andExpect(status().isNotFound());
@@ -209,7 +218,7 @@ class UsuarioControllerTest {
 
     @Test
     void actualizar_debeRetornarUsuarioActualizado() throws Exception {
-        Mockito.when(usuarioService.actualizar(eq(1L), any())).thenReturn(usuario);
+        Mockito.when(usuarioService.actualizar(eq(1L), eq(1L), any())).thenReturn(usuario);
 
         String json = """
                 {
@@ -229,12 +238,12 @@ class UsuarioControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombres").value("Juan"));
 
-        Mockito.verify(usuarioService).actualizar(eq(1L), any(Usuario.class));
+        Mockito.verify(usuarioService).actualizar(eq(1L), eq(1L), any(Usuario.class));
     }
 
     @Test
     void eliminar_debeRetornarNoContent() throws Exception {
-        Mockito.doNothing().when(usuarioService).eliminar(1L);
+        Mockito.doNothing().when(usuarioService).eliminar(1L, 1L);
 
         mockMvc.perform(delete("/api/usuarios/1"))
                 .andExpect(status().isNoContent());

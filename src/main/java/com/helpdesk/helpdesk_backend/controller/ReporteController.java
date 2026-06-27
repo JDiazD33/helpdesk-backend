@@ -30,7 +30,7 @@ public class ReporteController {
             @RequestParam int anio,
             @RequestParam(required = false) Integer mes) {
         // Sanitiza el empresaId: el ADMIN_OWNER puede indicar cualquier empresa,
-        // los demás roles quedan forzados al de su JWT.
+        // los demas roles quedan forzados al de su JWT.
         Long resolvedId = tenant.resolveEmpresaId(empresaId);
         return ResponseEntity.ok(reporteService.ticketsPorMes(resolvedId, anio, mes));
     }

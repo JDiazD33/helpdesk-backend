@@ -13,4 +13,8 @@ public class ProblemaResponseDTO {
     private boolean activo;
     private Long categoriaId;
     private String categoriaNombre;
+    // Útiles para el ADMIN_OWNER, que opera sobre varias empresas y necesita
+    // saber a cuál pertenece cada problema (filtro y eliminación).
+    private Long empresaId;
+    private String empresaNombre;
 }

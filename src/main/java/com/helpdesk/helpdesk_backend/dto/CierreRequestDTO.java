@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 public class CierreRequestDTO {
 
-    @NotBlank(message = "La justificación es obligatoria")
-    @Size(min = 10, message = "La justificación debe tener al menos 10 caracteres")
+    @NotBlank(message = "La justificacion es obligatoria")
+    @Size(min = 10, message = "La justificacion debe tener al menos 10 caracteres")
     private String justificacionCierre;
 
     private String imagenCierre;

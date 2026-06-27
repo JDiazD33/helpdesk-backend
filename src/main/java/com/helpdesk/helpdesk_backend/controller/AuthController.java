@@ -28,8 +28,8 @@ import com.helpdesk.helpdesk_backend.security.JwtUtil;
 import jakarta.validation.Valid;
 
 /**
- * Controlador de autenticación.
- * Endpoints públicos para login y registro de usuarios CLIENTE.
+ * Controlador de autenticacion.
+ * Endpoints publicos para login y registro de usuarios CLIENTE.
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -58,13 +58,13 @@ public class AuthController {
 
     /**
      * POST /api/auth/login
-     * Autentica al usuario con email y contraseña.
+     * autentica al usuario con email y contraseña.
      * Devuelve un token JWT con los datos básicos del usuario.
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         try {
-            // Spring Security valida email + contraseña contra la BD
+            // Spring Security valida email + contrasena contra la BD
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
@@ -77,7 +77,7 @@ public class AuthController {
                     ));
         }
 
-        // Si la autenticación fue exitosa, obtener datos del usuario
+        // Si la autenticacion fue exitosa, obtener datos del usuario
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
@@ -121,7 +121,7 @@ public class AuthController {
         Empresa empresa = empresaRepository.findById(request.getEmpresaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada con id: " + request.getEmpresaId()));
 
-        // Obtener el rol CLIENTE (siempre se asigna CLIENTE en registro público)
+        // Obtener el rol CLIENTE (siempre se asigna CLIENTE en registro publico)
         Rol rolCliente = rolRepository.findByNombre("CLIENTE")
                 .orElseThrow(() -> new ResourceNotFoundException("Rol CLIENTE no encontrado. Asegúrate de tener los roles iniciales en la BD."));
 
@@ -164,7 +164,7 @@ public class AuthController {
 
     /**
      * POST /api/auth/logout
-     * Con JWT stateless el cliente descarta el token; el servidor confirma la operación.
+     * Con JWT stateless el cliente descarta el token; el servidor confirma la operacion.
      */
     @PostMapping("/logout")
     public ResponseEntity<java.util.Map<String, String>> logout(

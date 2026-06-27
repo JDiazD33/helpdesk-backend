@@ -40,8 +40,15 @@ public class ProblemaTicketServiceImpl implements ProblemaTicketService {
         dto.setNombre(problema.getNombre());
         dto.setDescripcion(problema.getDescripcion());
         dto.setActivo(problema.isActivo());
-        dto.setCategoriaId(problema.getCategoria().getId());
-        dto.setCategoriaNombre(problema.getCategoria().getNombre());
+        CategoriaTicket categoria = problema.getCategoria();
+        dto.setCategoriaId(categoria.getId());
+        dto.setCategoriaNombre(categoria.getNombre());
+        // La empresa se obtiene a través de la categoría (cada categoría pertenece
+        // a una empresa). Útil para el ADMIN_OWNER en su vista global.
+        if (categoria.getEmpresa() != null) {
+            dto.setEmpresaId(categoria.getEmpresa().getId());
+            dto.setEmpresaNombre(categoria.getEmpresa().getNombre());
+        }
         return dto;
     }
 

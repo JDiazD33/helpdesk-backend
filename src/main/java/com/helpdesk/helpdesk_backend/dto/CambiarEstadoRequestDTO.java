@@ -12,9 +12,9 @@ public class CambiarEstadoRequestDTO {
     private EstadoTicket estado;
 
     // No le ponemos @NotBlank porque solo es obligatorio para algunos estados
-    // La validación estricta (exigir justificación si es CERRADO) la hará tu Service
+    // La validacion estricta (exigir justificacion si es CERRADO) la hara tu Service
     private String justificacionCierre;
 
-    // ID del usuario que realiza el cambio (para comentario automático del sistema)
+    // ID del usuario que realiza el cambio (para comentario automatico del sistema)
     private Long usuarioId;
 }

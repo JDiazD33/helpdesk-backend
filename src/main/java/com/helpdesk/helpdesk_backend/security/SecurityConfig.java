@@ -68,6 +68,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Endpoints publicos
                 .requestMatchers("/api/auth/**").permitAll()
+                // Reporte de tickets sin iniciar sesión: identifica la empresa por el
+                // correo del reportante y expone solo el catálogo de esa empresa.
+                .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Recursos estaticos de uploads (imagenes de cierre servidas por WebConfig).
                 // Cualquiera con la URL puede verlas: aceptable porque el nombre de archivo

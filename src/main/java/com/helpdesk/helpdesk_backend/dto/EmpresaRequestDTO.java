@@ -22,12 +22,12 @@ public class EmpresaRequestDTO {
     @Size(max = 150, message = "El nombre no puede tener más de 150 caracteres")
     private String nombre;
     
-    @NotBlank(message = "El teléfono de contacto es obligatorio")
-    @Size(max = 12, message = "El teléfono de contacto no puede tener más de 12 caracteres")
+    @NotBlank(message = "El telefono de contacto es obligatorio")
+    @Size(max = 12, message = "El telefono de contacto no puede tener más de 12 caracteres")
     private String telefonoContacto;
     
     @NotBlank(message = "El correo de contacto es obligatorio")
-    @Email(message = "Debe ser una dirección de correo electrónico válida")
+    @Email(message = "Debe ser una direccion de correo electronico valida")
     @Size(max = 100, message = "El correo no puede tener más de 100 caracteres")
     private String correoContacto;
 }

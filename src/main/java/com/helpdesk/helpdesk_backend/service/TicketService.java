@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CalificacionRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CierreRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.TicketAnonimoRequestDTO;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
@@ -28,6 +30,10 @@ public interface TicketService {
 
     // Crear ticket y comentario inicial en una sola transacción
     Ticket guardarConComentarioInicial(Ticket ticket, String mensajeInicial, Long usuarioComentarioId);
+
+    // Crear ticket reportado de forma anónima (sin usuario logueado).
+    // El reportante se identifica por correo/telefono. No requiere cliente.
+    Ticket guardarAnonimo(TicketAnonimoRequestDTO request);
 
     // Actualizar ticket existente, restringido a la empresa del tenant
     Ticket actualizar(Long id, Long empresaId, Ticket ticket);
@@ -101,4 +107,11 @@ public interface TicketService {
     Ticket asignarAgente(Long id, Long empresaId, Long agenteId);
 
     Ticket guardarCierre(Long id, Long empresaId, CierreRequestDTO request);
+
+    // El cliente dueño califica (1-5 estrellas) la atención de un ticket RESUELTO.
+    Ticket calificarTicket(Long id, Long empresaId, CalificacionRequestDTO request);
+
+    // Ranking de mejores agentes según el promedio de calificaciones de los clientes.
+    // empresaId NULL → vista global del ADMIN_OWNER.
+    List<Object[]> rankingMejoresAgentes(Long empresaId);
 }

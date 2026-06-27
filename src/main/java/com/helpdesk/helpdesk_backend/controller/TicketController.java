@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.AsignarAgenteRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CalificacionRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CierreRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.TicketConComentarioRequestDTO;
 import com.helpdesk.helpdesk_backend.model.Ticket;
@@ -40,7 +41,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/tickets")
 public class TicketController {
 
-    // Inyección de dependencias del servicio de tickets
+    // Inyeccion de dependencias del servicio de tickets
     private final TicketService ticketService;
     private final FileStorageService fileStorageService;
     private final TenantSecurity tenant;
@@ -256,6 +257,32 @@ public class TicketController {
             @Valid @RequestBody CierreRequestDTO request) {
         Long empresaId = tenant.getEmpresaId();
         return ResponseEntity.ok(ticketService.guardarCierre(id, empresaId, request));
+    }
+
+    // ── Calificacion del agente por parte del cliente ──
+
+    /**
+     * El cliente dueño califica (1-5 estrellas) la atención de un ticket resuelto.
+     * La validación de que sea el cliente dueño se hace en el service.
+     */
+    @PostMapping("/{id}/calificar")
+    public ResponseEntity<Ticket> calificarTicket(
+            @PathVariable Long id,
+            @Valid @RequestBody CalificacionRequestDTO request) {
+        Long empresaId = tenant.getEmpresaId();
+        return ResponseEntity.ok(ticketService.calificarTicket(id, empresaId, request));
+    }
+
+    /**
+     * Ranking de mejores agentes por promedio de calificacion.
+     * Cada fila: [agenteId, nombres, apellidos, promedioCalificacion, totalTickets].
+     * empresaId opcional (la vista global del ADMIN_OWNER no lo envía).
+     */
+    @GetMapping("/ranking-agentes")
+    public ResponseEntity<List<Object[]>> rankingMejoresAgentes(
+            @RequestParam(required = false) Long empresaId) {
+        Long resolvedId = tenant.resolveEmpresaId(empresaId);
+        return ResponseEntity.ok(ticketService.rankingMejoresAgentes(resolvedId));
     }
 
     // ── CRUD ──

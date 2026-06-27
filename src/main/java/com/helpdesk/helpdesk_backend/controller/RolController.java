@@ -23,7 +23,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/roles")
 public class RolController {
 
-    // Inyección de dependencia del servicio de roles
+    // inyeccion de dependencia del servicio de roles
     private final RolService rolService;
 
     // Constructor para inyectar el servicio de roles
@@ -31,7 +31,7 @@ public class RolController {
         this.rolService = rolService;
     }
 
-    // Métodos para manejar las solicitudes HTTP
+    // metodos para manejar las solicitudes HTTP
     // Listar todos los roles
     @GetMapping
     public ResponseEntity<List<Rol>> listarTodos() {

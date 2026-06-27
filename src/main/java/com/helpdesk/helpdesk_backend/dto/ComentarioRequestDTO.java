@@ -7,12 +7,12 @@ import lombok.Data;
 @Data
 public class ComentarioRequestDTO {
 
-    @NotBlank(message = "El mensaje no puede estar vacío")
+    @NotBlank(message = "El mensaje no puede estar vacio")
     private String mensaje;
 
     @NotNull(message = "El ID del ticket es obligatorio")
     private Long ticketId;
     
-    // El usuario_id se sacará del contexto del token JWT, no del request.
+    // El usuario_id se sacara del contexto del token JWT, no del request.
 
 }

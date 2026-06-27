@@ -37,6 +37,10 @@ public class CategoriaTicketServiceImpl implements CategoriaTicketService {
         dto.setNombre(categoria.getNombre());
         dto.setDescripcion(categoria.getDescripcion());
         dto.setActiva(categoria.isActiva());
+        if (categoria.getEmpresa() != null) {
+            dto.setEmpresaId(categoria.getEmpresa().getId());
+            dto.setEmpresaNombre(categoria.getEmpresa().getNombre());
+        }
         return dto;
     }
 

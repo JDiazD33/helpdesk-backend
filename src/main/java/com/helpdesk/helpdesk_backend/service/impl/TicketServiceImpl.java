@@ -15,7 +15,11 @@ import org.springframework.util.StringUtils;
 
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.dto.CambiarEstadoRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.CalificacionRequestDTO;
 import com.helpdesk.helpdesk_backend.dto.CierreRequestDTO;
+import com.helpdesk.helpdesk_backend.dto.TicketAnonimoRequestDTO;
+import com.helpdesk.helpdesk_backend.model.CategoriaTicket;
+import com.helpdesk.helpdesk_backend.model.ProblemaTicket;
 import com.helpdesk.helpdesk_backend.model.Ticket;
 import com.helpdesk.helpdesk_backend.model.TicketComentario;
 import com.helpdesk.helpdesk_backend.model.Usuario;
@@ -150,6 +154,89 @@ public class TicketServiceImpl implements TicketService{
             comentarioRepository.save(comentario);
         }
         return guardado;
+    }
+
+    /**
+     * Crea un ticket reportado sin iniciar sesión.
+     *
+     * El reportante NO está autenticado, pero su correo debe corresponder a un
+     * usuario CLIENTE registrado. A partir de ese correo se identifica la empresa
+     * (no se pide manualmente). Si el correo no existe, lanza 404.
+     *
+     * La categoría debe pertenecer a la empresa del usuario; el problema (opcional)
+     * debe pertenecer a la categoría elegida. El título se auto-genera.
+     */
+    @Override
+    public Ticket guardarAnonimo(TicketAnonimoRequestDTO request) {
+        // 1. Identificar la empresa a partir del correo del usuario registrado.
+        Usuario reportante = usuarioRepository.findByEmail(request.getCorreo())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No encontramos una cuenta asociada al correo: " + request.getCorreo()
+                        + ". Regístrate o contacta a soporte."));
+
+        // Solo los clientes pueden reportar por esta vía. Se rechaza a administradores
+        // y agentes para evitar reportes fuera de su flujo (ellos usan el panel autenticado).
+        String nombreRol = reportante.getRol() != null ? reportante.getRol().getNombre() : null;
+        if (!"CLIENTE".equals(nombreRol)) {
+            throw new IllegalArgumentException(
+                    "El reporte público de tickets es exclusivo para clientes. "
+                    + "Inicia sesión con tu cuenta para gestionar tickets.");
+        }
+
+        Long empresaId = reportante.getEmpresa().getId();
+
+        // 2. Validar que la categoría exista, esté activa y pertenezca a esa empresa.
+        CategoriaTicket categoria = categoriaRepository.findById(request.getCategoriaId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Categoría no encontrada con id: " + request.getCategoriaId()));
+        if (!categoria.isActiva()) {
+            throw new IllegalArgumentException("La categoría seleccionada ya no está disponible.");
+        }
+        if (!categoria.getEmpresa().getId().equals(empresaId)) {
+            throw new IllegalArgumentException(
+                    "La categoría seleccionada no pertenece a la empresa del correo ingresado.");
+        }
+
+        // 3. Validar el problema (opcional): debe estar activo y pertenecer a la categoría.
+        ProblemaTicket problema = null;
+        if (request.getProblemaId() != null) {
+            problema = problemaRepository.findById(request.getProblemaId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Problema no encontrado con id: " + request.getProblemaId()));
+            if (!problema.isActivo()) {
+                throw new IllegalArgumentException("El problema seleccionado ya no está disponible.");
+            }
+            if (!problema.getCategoria().getId().equals(categoria.getId())) {
+                throw new IllegalArgumentException(
+                        "El problema seleccionado no pertenece a la categoría elegida.");
+            }
+        }
+
+        // 4. El título lo escribe la persona en el formulario; la prioridad también
+        //    la elige (con MEDIA por defecto si llegara nula, aunque el DTO la exige).
+        PrioridadTicket prioridad = request.getPrioridad() != null
+                ? request.getPrioridad()
+                : PrioridadTicket.MEDIA;
+
+        // 5. Construir el ticket. Se vincula al reportante como cliente (identificado
+        //    por su correo) para que el ticket aparezca en su dashboard/listado.
+        Ticket ticket = Ticket.builder()
+                .titulo(request.getTitulo().trim())
+                .descripcion(request.getDescripcion())
+                .telefonoReportante(request.getTelefono())
+                .correoReportante(request.getCorreo())
+                .estado(EstadoTicket.ABIERTO)
+                .prioridad(prioridad)
+                .empresa(empresaRepository.getReferenceById(empresaId))
+                .categoria(categoria)
+                .problema(problema)
+                .cliente(reportante)
+                .build();
+
+        // Generar código único (mismo formato que guardar()).
+        ticket.setCodigo("TCK-" + (1000 + new java.util.Random().nextInt(9000)));
+
+        return ticketRepository.save(ticket);
     }
 
     /**
@@ -354,6 +441,13 @@ public class TicketServiceImpl implements TicketService{
     @Override
     public Ticket cambiarEstado(Long id, Long empresaId, CambiarEstadoRequestDTO request) {
         Ticket ticket = obtenerTicketDeTenant(id, empresaId);
+        // Los tickets RESUELTO o CERRADO son de solo lectura: ya no se puede
+        // cambiar su estado (evita reapertura accidental o maliciosa).
+        if (ticket.getEstado() == EstadoTicket.RESUELTO || ticket.getEstado() == EstadoTicket.CERRADO) {
+            throw new IllegalArgumentException(
+                    "No se puede cambiar el estado de un ticket " + ticket.getEstado().name()
+                    + ". El ticket ya está cerrado y es de solo lectura.");
+        }
         if (request.getEstado() == EstadoTicket.CERRADO
                 && (request.getJustificacionCierre() == null || request.getJustificacionCierre().isBlank())) {
             throw new IllegalArgumentException("La justificacion de cierre es obligatoria para estado CERRADO");
@@ -383,6 +477,12 @@ public class TicketServiceImpl implements TicketService{
     @Override
     public Ticket asignarAgente(Long id, Long empresaId, Long agenteId) {
         Ticket ticket = obtenerTicketDeTenant(id, empresaId);
+        // Los tickets RESUELTO o CERRADO son de solo lectura: no se reasigna agente.
+        if (ticket.getEstado() == EstadoTicket.RESUELTO || ticket.getEstado() == EstadoTicket.CERRADO) {
+            throw new IllegalArgumentException(
+                    "No se puede asignar agente a un ticket " + ticket.getEstado().name()
+                    + ". El ticket ya está cerrado y es de solo lectura.");
+        }
         // El agente debe pertenecer a la MISMA empresa del ticket (no a la del JWT).
         // Así el owner puede asignar agentes a tickets de cualquier empresa,
         // y siempre respeta la consistencia tenant del propio ticket.
@@ -424,6 +524,74 @@ public class TicketServiceImpl implements TicketService{
             comentarioRepository.save(comentario);
         }
         return guardado;
+    }
+
+    /**
+     * El CLIENTE dueño califica (1-5 estrellas) la atención de un ticket RESUELTO.
+     *
+     * Validaciones:
+     * - El usuario autenticado debe ser el cliente dueño del ticket.
+     * - El ticket debe estar RESUELTO y tener un agente asignado.
+     * - No se permite recalificar (si ya tiene calificación, se rechaza).
+     */
+    @Override
+    public Ticket calificarTicket(Long id, Long empresaId, CalificacionRequestDTO request) {
+        Ticket ticket = obtenerTicketDeTenant(id, empresaId);
+
+        // Solo el cliente dueño puede calificar su propio ticket.
+        Long usuarioActual = SecurityUtils.getCurrentUserId();
+        if (usuarioActual == null || ticket.getCliente() == null
+                || !usuarioActual.equals(ticket.getCliente().getId())) {
+            throw new IllegalArgumentException(
+                    "Solo el cliente dueño del ticket puede calificar la atención.");
+        }
+
+        if (ticket.getEstado() != EstadoTicket.RESUELTO) {
+            throw new IllegalArgumentException(
+                    "Solo se puede calificar un ticket que esté resuelto.");
+        }
+
+        if (ticket.getAgenteAsignado() == null) {
+            throw new IllegalArgumentException(
+                    "Este ticket no tiene un agente asignado que calificar.");
+        }
+
+        if (ticket.getCalificacionAgente() != null) {
+            throw new IllegalArgumentException(
+                    "Este ticket ya fue calificado. No es posible cambiar la calificación.");
+        }
+
+        ticket.setCalificacionAgente(request.getCalificacion());
+        Ticket guardado = ticketRepository.save(ticket);
+
+        // Comentario de sistema dejando constancia de la calificación.
+        String texto = "El cliente calificó la atención con " + request.getCalificacion()
+                + (request.getCalificacion() == 1 ? " estrella." : " estrellas.");
+        Usuario usuario = usuarioRepository.getReferenceById(usuarioActual);
+        TicketComentario comentario = TicketComentario.builder()
+                .mensaje(texto)
+                .ticket(guardado)
+                .usuario(usuario)
+                .esSistema(true)
+                .build();
+        comentarioRepository.save(comentario);
+
+        return guardado;
+    }
+
+    /**
+     * Ranking de mejores agentes por promedio de calificación.
+     * empresaId NULL → vista global del ADMIN_OWNER.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Object[]> rankingMejoresAgentes(Long empresaId) {
+        // El ADMIN_OWNER ve todas las empresas (empresaId = null). Los demás roles
+        // filtran por su empresa.
+        if (SecurityUtils.isAdminOwner()) {
+            return ticketRepository.rankingMejoresAgentes(null);
+        }
+        return ticketRepository.rankingMejoresAgentes(empresaId);
     }
 
     /**

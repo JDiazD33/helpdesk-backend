@@ -69,7 +69,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
          * Usa JOIN FETCH para evitar el problema N+1.
          */
         @Query("SELECT t FROM Ticket t " +
-                        "JOIN FETCH t.cliente " +
+                        "LEFT JOIN FETCH t.cliente " +
                         "JOIN FETCH t.empresa " +
                         "WHERE t.empresa.id = :empresaId " +
                         "ORDER BY t.fechaCreacion DESC")
@@ -102,7 +102,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
          * Ejemplo: ver los tickets EN_PROGRESO de un agente.
          */
         @Query("SELECT t FROM Ticket t " +
-                        "JOIN FETCH t.cliente " +
+                        "LEFT JOIN FETCH t.cliente " +
                         "WHERE t.agenteAsignado.id = :agenteId " +
                         "AND t.estado = :estado " +
                         "ORDER BY t.prioridad DESC, t.fechaCreacion ASC")
@@ -181,7 +181,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
          * Tickets sin agente asignado (sin asignar) de una empresa.
          */
         @Query("SELECT t FROM Ticket t " +
-                        "JOIN FETCH t.cliente " +
+                        "LEFT JOIN FETCH t.cliente " +
                         "WHERE t.empresa.id = :empresaId " +
                         "AND t.agenteAsignado IS NULL " +
                         "ORDER BY t.prioridad DESC, t.fechaCreacion ASC")
@@ -202,7 +202,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
          * Tickets actualizados desde una fecha específica.
          */
         @Query("SELECT t FROM Ticket t " +
-                        "JOIN FETCH t.cliente " +
+                        "LEFT JOIN FETCH t.cliente " +
                         "WHERE t.empresa.id = :empresaId " +
                         "AND t.fechaActualizacion >= :fecha " +
                         "ORDER BY t.fechaActualizacion DESC")
@@ -210,22 +210,22 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
         // ─── Filtros por asignación de agente ───
 
-        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.agenteAsignado IS NOT NULL ORDER BY t.fechaCreacion DESC")
+        @Query("SELECT t FROM Ticket t LEFT JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.agenteAsignado IS NOT NULL ORDER BY t.fechaCreacion DESC")
         List<Ticket> findAllConAgente();
 
-        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.agenteAsignado IS NULL ORDER BY t.fechaCreacion DESC")
+        @Query("SELECT t FROM Ticket t LEFT JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.agenteAsignado IS NULL ORDER BY t.fechaCreacion DESC")
         List<Ticket> findAllSinAgente();
 
-        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.empresa.id = :empresaId AND t.agenteAsignado IS NOT NULL ORDER BY t.fechaCreacion DESC")
+        @Query("SELECT t FROM Ticket t LEFT JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.empresa.id = :empresaId AND t.agenteAsignado IS NOT NULL ORDER BY t.fechaCreacion DESC")
         List<Ticket> findByEmpresaConAgente(@Param("empresaId") Long empresaId);
 
-        @Query("SELECT t FROM Ticket t JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.empresa.id = :empresaId AND t.agenteAsignado IS NULL ORDER BY t.fechaCreacion DESC")
+        @Query("SELECT t FROM Ticket t LEFT JOIN FETCH t.cliente JOIN FETCH t.empresa WHERE t.empresa.id = :empresaId AND t.agenteAsignado IS NULL ORDER BY t.fechaCreacion DESC")
         List<Ticket> findByEmpresaSinAgente(@Param("empresaId") Long empresaId);
 
         // ─── Globales (sin filtro de empresa) para ADMIN_OWNER ───
 
         @Query("SELECT t FROM Ticket t " +
-                        "JOIN FETCH t.cliente " +
+                        "LEFT JOIN FETCH t.cliente " +
                         "WHERE t.agenteAsignado IS NULL " +
                         "ORDER BY t.prioridad DESC, t.fechaCreacion ASC")
         List<Ticket> findSinAsignarGlobal();
@@ -236,4 +236,24 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
         List<Ticket> findByPeriodoGlobal(
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin);
+
+        // ─── Ranking de mejores agentes por calificación ───
+
+        /**
+         * Ranking de mejores agentes según el promedio de calificación que los
+         * clientes dieron a sus tickets resueltos.
+         *
+         * Cada fila: [agenteId, nombres, apellidos, promedioCalificacion, totalTickets]
+         * - empresaId NULL → vista global del ADMIN_OWNER (sin filtro de empresa).
+         * - Solo cuenta tickets con calificación (calificacionAgente IS NOT NULL).
+         * - Ordenado por promedio descendente.
+         */
+        @Query("SELECT t.agenteAsignado.id, t.agenteAsignado.nombres, t.agenteAsignado.apellidos, " +
+                        "AVG(t.calificacionAgente), COUNT(t) " +
+                        "FROM Ticket t " +
+                        "WHERE t.calificacionAgente IS NOT NULL " +
+                        "AND (:empresaId IS NULL OR t.empresa.id = :empresaId) " +
+                        "GROUP BY t.agenteAsignado.id, t.agenteAsignado.nombres, t.agenteAsignado.apellidos " +
+                        "ORDER BY AVG(t.calificacionAgente) DESC")
+        List<Object[]> rankingMejoresAgentes(@Param("empresaId") Long empresaId);
 }

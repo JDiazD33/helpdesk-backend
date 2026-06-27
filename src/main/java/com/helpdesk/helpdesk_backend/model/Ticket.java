@@ -68,6 +68,11 @@ public class Ticket {
 
     // Almacena la URL o path del archivo adjunto como evidencia de cierre.
     private String imagenCierre;
+
+    /* Calificación que el CLIENTE da al agente cuando el ticket pasa a RESUELTO.
+       Rango 1-5 (estrellas). Es nullable: solo se llena si el cliente califica. */
+    @Column(name = "calificacion_agente")
+    private Integer calificacionAgente;
     
     /* Campos de auditoría automática para control de SLAs (Acuerdo de Nivel de Servicio) y tiempos de respuesta. */
     @CreationTimestamp

@@ -22,6 +22,7 @@ import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.repository.TicketComentarioRepository;
 import com.helpdesk.helpdesk_backend.repository.TicketRepository;
 import com.helpdesk.helpdesk_backend.repository.UsuarioRepository;
+import com.helpdesk.helpdesk_backend.security.SecurityUtils;
 import com.helpdesk.helpdesk_backend.service.TicketComentarioService;
 
 import lombok.RequiredArgsConstructor;
@@ -60,8 +61,15 @@ public class TicketComentarioServiceImpl implements TicketComentarioService {
     @Override
     @Transactional(readOnly = true)
     public List<ComentarioResponseDTO> listarComentariosPorTicket(Long ticketId, Long empresaIdContexto) {
-        ticketRepository.findByIdAndEmpresaId(ticketId, empresaIdContexto)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado o no pertenece a la empresa"));
+        // El ADMIN_OWNER (super-admin global) puede ver comentarios de tickets
+        // de cualquier empresa: no se filtra por empresa.
+        if (SecurityUtils.isAdminOwner()) {
+            ticketRepository.findById(ticketId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado con id: " + ticketId));
+        } else {
+            ticketRepository.findByIdAndEmpresaId(ticketId, empresaIdContexto)
+                    .orElseThrow(() -> new ResourceNotFoundException("Ticket no encontrado o no pertenece a la empresa"));
+        }
 
         return comentarioRepository.findAllByTicketIdOrderByFechaEnvioAsc(ticketId)
                 .stream()

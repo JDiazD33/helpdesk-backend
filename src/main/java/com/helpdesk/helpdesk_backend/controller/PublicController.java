@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.helpdesk.helpdesk_backend.dto.CategoriaResponseDTO;
+import com.helpdesk.helpdesk_backend.dto.EmpresaResponseDTO;
 import com.helpdesk.helpdesk_backend.dto.ProblemaResponseDTO;
 import com.helpdesk.helpdesk_backend.dto.TicketAnonimoRequestDTO;
 import com.helpdesk.helpdesk_backend.exception.ResourceNotFoundException;
 import com.helpdesk.helpdesk_backend.model.Usuario;
 import com.helpdesk.helpdesk_backend.repository.UsuarioRepository;
 import com.helpdesk.helpdesk_backend.service.CategoriaTicketService;
+import com.helpdesk.helpdesk_backend.service.EmpresaService;
 import com.helpdesk.helpdesk_backend.service.ProblemaTicketService;
 import com.helpdesk.helpdesk_backend.service.TicketService;
 
@@ -44,15 +46,28 @@ public class PublicController {
     private final CategoriaTicketService categoriaService;
     private final ProblemaTicketService problemaService;
     private final TicketService ticketService;
+    private final EmpresaService empresaService;
 
     public PublicController(UsuarioRepository usuarioRepository,
                             CategoriaTicketService categoriaService,
                             ProblemaTicketService problemaService,
-                            TicketService ticketService) {
+                            TicketService ticketService,
+                            EmpresaService empresaService) {
         this.usuarioRepository = usuarioRepository;
         this.categoriaService = categoriaService;
         this.problemaService = problemaService;
         this.ticketService = ticketService;
+        this.empresaService = empresaService;
+    }
+
+    /**
+     * GET /api/public/empresas
+     * Lista las empresas activas (solo id + nombre) para el selector del registro
+     * público. No expone RUC ni datos sensibles de contacto.
+     */
+    @GetMapping("/empresas")
+    public ResponseEntity<List<EmpresaResponseDTO>> listarEmpresasActivas() {
+        return ResponseEntity.ok(empresaService.listarEmpresasActivas());
     }
 
     /**

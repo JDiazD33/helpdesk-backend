@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.helpdesk.helpdesk_backend.model.enums.EstadoTicket;
 import com.helpdesk.helpdesk_backend.model.enums.PrioridadTicket;
 
@@ -77,10 +78,12 @@ public class Ticket {
     /* Campos de auditoría automática para control de SLAs (Acuerdo de Nivel de Servicio) y tiempos de respuesta. */
     @CreationTimestamp
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "America/Lima")
     private LocalDateTime fechaCreacion;
 
     @UpdateTimestamp
     @Column(name = "fecha_actualizacion", nullable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "America/Lima")
     private LocalDateTime fechaActualizacion;
 
     /* Relaciones con FetchType.LAZY para evitar el problema de consultas N+1 y optimizar el rendimiento. */

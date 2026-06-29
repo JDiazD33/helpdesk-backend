@@ -142,7 +142,13 @@ public class TicketServiceImpl implements TicketService{
     @Override
     public Ticket guardarConComentarioInicial(Ticket ticket, String mensajeInicial, Long usuarioComentarioId) {
         Ticket guardado = guardar(ticket);
-        if (StringUtils.hasText(mensajeInicial)) {
+        // No insertamos la descripción como comentario automático: la descripción
+        // del ticket ya se muestra en el detalle, y duplicarla ensucia la
+        // conversación (que debe quedar reservada para el agente). Solo creamos
+        // comentario si el mensaje inicial es distinto a la descripción del ticket.
+        if (StringUtils.hasText(mensajeInicial)
+                && !mensajeInicial.trim().equalsIgnoreCase(
+                        guardado.getDescripcion() == null ? "" : guardado.getDescripcion().trim())) {
             Usuario usuario = usuarioRepository.findById(usuarioComentarioId)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Usuario no encontrado con id: " + usuarioComentarioId));

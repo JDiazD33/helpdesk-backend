@@ -28,45 +28,45 @@
         </dependency>
 
  
-        <!-- ✅ Web (REST API) -->
+        <!--  Web (REST API) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
  
-        <!-- ✅ JPA + Hibernate -->
+        <!--  JPA + Hibernate -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
  
-        <!-- ✅ Spring Security -->
+        <!--  Spring Security -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
  
-        <!-- ✅ Validaciones (@Valid, @NotBlank, etc.) -->
+        <!--  Validaciones (@Valid, @NotBlank, etc.) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
  
-        <!-- ✅ MySQL Driver -->
+        <!--  MySQL Driver -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
 
-        <!-- ✅ MapStruct (para mapeo entre DTOs y entidades) -->
+        <!--  MapStruct (para mapeo entre DTOs y entidades) -->
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
             <version>1.5.5.Final</version>
         </dependency>
  
-        <!-- ✅ Lombok -->
+        <!--  Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -74,7 +74,7 @@
             <optional>true</optional>
         </dependency>
  
-        <!-- ✅ JWT (JJWT - para generar y validar tokens) -->
+        <!--  JWT (JJWT - para generar y validar tokens) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -93,14 +93,14 @@
             <scope>runtime</scope>
         </dependency>
  
-        <!-- ✅ Swagger / OpenAPI (versión correcta para Spring Boot 3.x) -->
+        <!-- Swagger / OpenAPI (Spring Boot 3.x) -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.5.0</version>
         </dependency>
  
-        <!-- ✅ DevTools (recarga automática en desarrollo) -->
+        <!-- DevTools (recarga automática en desarrollo) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
@@ -108,7 +108,7 @@
             <optional>true</optional>
         </dependency>
  
-        <!-- ✅ Tests -->
+        <!--  Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
